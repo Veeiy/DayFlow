@@ -187,7 +187,11 @@ export default function App() {
   const loadFromSupabase = async (userId) => {
     try {
       // Load settings
-      const {data:settings} = await supabase.from("user_settings").select("*").eq("user_id",userId).single();
+      let {data:settings} = await supabase.from("user_settings").select("*").eq("user_id",userId).maybeSingle();
+      if (!settings) {
+        await supabase.from("user_settings").insert({user_id: userId, monthly_income: 0, plan: 'free'});
+        settings = {monthly_income: 0, plan: 'free'};
+      }
       // Load daily entries
       const {data:entries} = await supabase.from("daily_entries").select("*").eq("user_id",userId);
       // Load recurring
