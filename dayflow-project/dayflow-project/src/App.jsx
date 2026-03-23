@@ -243,11 +243,6 @@ export default function App() {
   const [authError,setAuthError]     = useState("");
   const [authBusy,setAuthBusy]       = useState(false);
   const [syncBusy,setSyncBusy]       = useState(false);
-  const [showOnboarding,setShowOnboarding] = useState(false);
-  const [onboardStep,setOnboardStep]       = useState(0);
-  const [showUpgrade,setShowUpgrade]       = useState(false);
-  const [upgradeBilling,setUpgradeBilling] = useState("monthly");
-  const [upgradeLoading,setUpgradeLoading] = useState(false);
 
   // ── Auth listener ───────────────────────────────────────────────────────────
  useEffect(()=>{
@@ -555,25 +550,6 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
     } finally {
       setUpgradeLoading(false);
     }
-  };
-
-  // ── Stripe Upgrade ───────────────────────────────────────────────────────
-  const PRICES = {
-    pro:      { monthly:"price_1TDvC2EHLJtYfhmkOqOXTxMe", annual:"price_1TDvFnEHLJtYfhmkUAJLYCpG" },
-    business: { monthly:"price_1TDvFOEHLJtYfhmkGmcEEyv9", annual:"price_1TDvFOEHLJtYfhmkZQ3HhjTy" },
-  };
-  const handleUpgrade = async (planKey) => {
-    if (!user) return;
-    setUpgradeLoading(true);
-    try {
-      const priceId = PRICES[planKey][upgradeBilling];
-      const { data: d, error } = await supabase.functions.invoke("stripe-checkout", {
-        body: { priceId, userId: user.id, email: user.email },
-      });
-      if (error) throw error;
-      if (d?.url) window.location.href = d.url;
-    } catch(e) { alert("Could not start checkout. Please try again."); }
-    finally { setUpgradeLoading(false); }
   };
 
   const handleFileUpload = (e) => {
