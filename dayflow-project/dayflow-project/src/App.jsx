@@ -98,28 +98,6 @@ function LearnSection({section, onAsk}) {
   );
 }
 
-// ─── Markdown renderer for AI chat ───────────────────────────────────────────
-const renderMd = (text) => {
-  if (!text) return null;
-  return text.split("\n").map((line, i, arr) => {
-    const parts = [];
-    let remaining = line;
-    let key = 0;
-    while (remaining.length > 0) {
-      const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
-      if (boldMatch) {
-        if (boldMatch.index > 0) parts.push(<span key={key++}>{remaining.slice(0, boldMatch.index)}</span>);
-        parts.push(<strong key={key++} style={{fontWeight:700}}>{boldMatch[1]}</strong>);
-        remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
-      } else {
-        parts.push(<span key={key++}>{remaining}</span>);
-        break;
-      }
-    }
-    return <span key={i}>{parts}{i < arr.length - 1 && <br/>}</span>;
-  });
-};
-
 // ─── Mock Plaid ───────────────────────────────────────────────────────────────
 const MOCK_PLAID = (() => {
   const t = new Date();
