@@ -170,15 +170,13 @@ export default function App() {
   const [syncBusy,setSyncBusy]       = useState(false);
 
   // ── Auth listener ───────────────────────────────────────────────────────────
-  useEffect(()=>{
-    supabase.auth.getSession().then(({data:{session}})=>{
+ useEffect(()=>{
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((event,session)=>{
       setUser(session?.user ?? null);
       setAuthLoading(false);
-      if (session?.user) loadFromSupabase(session.user.id);
-    });
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,session)=>{
-      setUser(session?.user ?? null);
-      if (session?.user) loadFromSupabase(session.user.id);
+      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION')) {
+        loadFromSupabase(session.user.id);
+      }
     });
     return ()=>subscription.unsubscribe();
   },[]);
@@ -189,7 +187,7 @@ export default function App() {
       // Load settings
       let {data:settings} = await supabase.from("user_settings").select("*").eq("user_id",userId).maybeSingle();
       if (!settings) {
-        await supabase.from("user_settings").insert({user_id: userId, monthly_income: 0, plan: 'free'});
+        await supabase.from("user_settings").upsert({user_id: userId, monthly_income: 0, plan: 'free'});
         settings = {monthly_income: 0, plan: 'free'};
       }
       // Load daily entries
