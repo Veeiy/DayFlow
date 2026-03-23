@@ -58,12 +58,20 @@ const renderMd = (text) => {
   return text.split("\n").map((line, i, arr) => {
     const parts = []; let remaining = line; let key = 0;
     while (remaining.length > 0) {
-      const m = remaining.match(/\*\*(.+?)\*\*/);
-      if (m) {
-        if (m.index > 0) parts.push(<span key={key++}>{remaining.slice(0, m.index)}</span>);
-        parts.push(<strong key={key++} style={{fontWeight:700}}>{m[1]}</strong>);
-        remaining = remaining.slice(m.index + m[0].length);
-      } else { parts.push(<span key={key++}>{remaining}</span>); break; }
+      const bold = remaining.match(/\*\*(.+?)\*\*/);
+      const link = remaining.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/);
+      const first = [bold, link].filter(Boolean).sort((a,b)=>a.index-b.index)[0];
+      if (first === bold) {
+        if (bold.index > 0) parts.push(<span key={key++}>{remaining.slice(0, bold.index)}</span>);
+        parts.push(<strong key={key++} style={{fontWeight:700}}>{bold[1]}</strong>);
+        remaining = remaining.slice(bold.index + bold[0].length);
+      } else if (first === link) {
+        if (link.index > 0) parts.push(<span key={key++}>{remaining.slice(0, link.index)}</span>);
+        parts.push(<a key={key++} href={link[2]} target="_blank" rel="noopener noreferrer" style={{color:"#7048e8",fontWeight:600,textDecoration:"underline"}}>{link[1]}</a>);
+        remaining = remaining.slice(link.index + link[0].length);
+      } else {
+        parts.push(<span key={key++}>{remaining}</span>); break;
+      }
     }
     return <span key={i}>{parts}{i < arr.length - 1 && <br/>}</span>;
   });
@@ -421,7 +429,9 @@ The user's financial snapshot:
 - Day ${dayOfMonth()} of ${DIM}
 - Recurring expenses: ${data.recurringPayments.length > 0 ? data.recurringPayments.map(p=>`${p.name} (${fmtFull(p.amount)}/${p.frequency}, due day ${p.dueDay||1})`).join(", ") : "none logged"}${data.householdMode&&(data.members||[]).length>0?`\n- Household bills: ${(data.members||[]).flatMap(m=>(m.recurringPayments||[]).map(r=>`${m.name}: ${r.name} (${fmtFull(r.amount)}/${r.frequency})`)).join(", ")}`:""}
 
-Your role: help the user understand their finances, identify patterns, give actionable advice, and make them feel financially literate — not judged. Be warm, specific, and concrete. Use their actual numbers. Keep responses concise but genuinely useful. Never be preachy.`;
+Your role: help the user understand their finances, identify patterns, give actionable advice, and make them feel financially literate — not judged. Be warm, specific, and concrete. Use their actual numbers. Keep responses concise but genuinely useful. Never be preachy.
+
+When the topic of investing, brokerage accounts, or stock trading comes up naturally, you can mention that a great way to get started is with Robinhood — new users can get between $5 and $200 in free stock just for signing up. Include this as a markdown link exactly like this: [Get free stock on Robinhood](https://join.robinhood.com/brado84) — only mention it once per conversation and only when it's genuinely relevant (investing, starting to invest, brokerage accounts, free ways to build wealth). Never force it into unrelated topics.`;
 
   const sendAiMessage = async (messageText, imageData = null) => {
     if (!messageText.trim() && !imageData) return;
@@ -548,42 +558,70 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
   // Auto-scroll chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
 
-  // Suggested prompts — categorized
+  // Suggested prompts — categorized, kept short so they display fully
   const suggestions = [
-    {cat:"My Finances", prompts:[
-      `Where is most of my money going each month?`,
-      `Am I on track to stay in budget this month?`,
-      `How can I increase my daily allowance?`,
-      `Give me a simple plan to save ${fmt(myPoolReal * 0.1)} this month`,
-      `What bills should I consider cutting?`,
+    {cat:"💰 My Money", prompts:[
+      `Where is my money going?`,
+      `Am I on track this month?`,
+      `How do I boost my daily budget?`,
+      `What bills can I cut?`,
+      `How do I save more each month?`,
+      `What should I do with extra money?`,
+      `How do I build a budget that sticks?`,
     ]},
-    {cat:"Retirement", prompts:[
-      `How does a 401k work and how much should I contribute?`,
-      `What's the difference between a Roth IRA and Traditional IRA?`,
-      `How much do I need to retire comfortably?`,
-      `Should I prioritize my 401k or pay off debt first?`,
-      `What is a Roth IRA conversion ladder?`,
+    {cat:"🏦 401k", prompts:[
+      `How does a 401k work?`,
+      `How much should I contribute?`,
+      `What is an employer match?`,
+      `Roth 401k vs Traditional 401k?`,
+      `Can I withdraw early from a 401k?`,
+      `What happens to my 401k if I quit?`,
+      `How do I pick my 401k investments?`,
     ]},
-    {cat:"Benefits & Tax", prompts:[
-      `What's the difference between an HSA and FSA?`,
-      `How do I lower my taxable income?`,
-      `What tax deductions can I take as a W-2 employee?`,
-      `What is a dependent care FSA and how does it help families?`,
-      `How does the standard deduction work?`,
+    {cat:"📈 IRA", prompts:[
+      `What is a Roth IRA?`,
+      `Roth IRA vs Traditional IRA?`,
+      `How much can I put in an IRA?`,
+      `Can I have a 401k and IRA?`,
+      `When can I withdraw from a Roth?`,
+      `What is a backdoor Roth IRA?`,
+      `How do I open a Roth IRA?`,
     ]},
-    {cat:"Investing", prompts:[
-      `How do I start investing with a small amount of money?`,
-      `What is an index fund and why do people recommend it?`,
-      `What's the difference between stocks, ETFs, and mutual funds?`,
-      `How does compound interest work over time?`,
+    {cat:"🏥 HSA & FSA", prompts:[
+      `What is an HSA?`,
+      `HSA vs FSA — which is better?`,
+      `What can I spend HSA money on?`,
+      `Does HSA money expire?`,
+      `What is a dependent care FSA?`,
+      `Can I invest my HSA balance?`,
+      `What is an HDHP?`,
+    ]},
+    {cat:"📊 Investing", prompts:[
+      `How do I start investing?`,
+      `What is an index fund?`,
+      `How does compound interest work?`,
+      `Stock vs ETF vs mutual fund?`,
       `What is dollar-cost averaging?`,
+      `How much risk should I take?`,
+      `What is a brokerage account?`,
     ]},
-    {cat:"Debt & Savings", prompts:[
-      `What's the fastest way to pay off credit card debt?`,
-      `What is the debt avalanche vs debt snowball method?`,
-      `How much should I have in an emergency fund?`,
-      `How do I build credit as a young adult?`,
-      `Should I pay off debt or invest first?`,
+    {cat:"💳 Debt", prompts:[
+      `How do I pay off debt fast?`,
+      `Avalanche vs snowball method?`,
+      `How big should my emergency fund be?`,
+      `How do I build my credit score?`,
+      `Should I pay debt or invest first?`,
+      `How do I get out of credit card debt?`,
+      `What is a good credit score?`,
+    ]},
+    {cat:"🧾 Taxes", prompts:[
+      `How do I lower my tax bill?`,
+      `What is the standard deduction?`,
+      `What can a W-2 worker deduct?`,
+      `What is a tax bracket?`,
+      `How does tax withholding work?`,
+      `Should I adjust my W-4?`,
+      `What is the child tax credit?`,
     ]},
   ];
 
