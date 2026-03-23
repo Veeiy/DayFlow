@@ -4,6 +4,7 @@ import { supabase } from "./supabase.js";
 
 // ─── Storage ────────────────────────────────────────────────────────────────
 const STORE_KEY = "dayflow_v3";
+const ONBOARD_KEY = "dayflow_onboarded_v1";
 const DEFAULTS  = {
   monthlyIncome: 0,
   recurringPayments: [],
@@ -50,6 +51,52 @@ const calcDaySpent = (entry, ptx=[], key=todayKey()) =>
 const fmt     = (n) => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(Math.abs(n??0));
 const fmtFull = (n) => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.abs(n??0));
 const fmtDate = (k) => new Date(k+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+
+// ─── Markdown renderer ───────────────────────────────────────────────────────
+const renderMd = (text) => {
+  if (!text) return null;
+  return text.split("\n").map((line, i, arr) => {
+    const parts = []; let remaining = line; let key = 0;
+    while (remaining.length > 0) {
+      const m = remaining.match(/\*\*(.+?)\*\*/);
+      if (m) {
+        if (m.index > 0) parts.push(<span key={key++}>{remaining.slice(0, m.index)}</span>);
+        parts.push(<strong key={key++} style={{fontWeight:700}}>{m[1]}</strong>);
+        remaining = remaining.slice(m.index + m[0].length);
+      } else { parts.push(<span key={key++}>{remaining}</span>); break; }
+    }
+    return <span key={i}>{parts}{i < arr.length - 1 && <br/>}</span>;
+  });
+};
+
+// ─── Learn Section Component ─────────────────────────────────────────────────
+function LearnSection({section, onAsk}) {
+  const [open, setOpen] = useState(null);
+  return (
+    <div style={{background:"#fff",borderRadius:24,boxShadow:"0 2px 0px rgba(0,0,0,0.04),0 8px 32px rgba(0,0,0,0.07)",border:"1px solid rgba(255,255,255,0.8)",overflow:"hidden"}}>
+      <div style={{padding:"18px 20px 14px",borderBottom:"1px solid #f0efe9",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:40,height:40,borderRadius:13,background:`${section.color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{section.emoji}</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#1a1a2e"}}>{section.title}</div>
+      </div>
+      {section.lessons.map((lesson,i)=>(
+        <div key={i} style={{borderBottom:i<section.lessons.length-1?"1px solid #f8f7f2":"none"}}>
+          <button onClick={()=>setOpen(open===i?null:i)} style={{width:"100%",padding:"14px 20px",background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,fontFamily:"inherit",textAlign:"left"}}>
+            <span style={{fontSize:13,fontWeight:600,color:"#1a1a2e",lineHeight:1.4}}>{lesson.q}</span>
+            <span style={{fontSize:18,color:section.color,flexShrink:0,transition:"transform 0.2s",display:"inline-block",transform:open===i?"rotate(45deg)":"rotate(0deg)"}}>+</span>
+          </button>
+          {open===i&&(
+            <div style={{padding:"0 20px 16px"}}>
+              <div style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:12}}>{lesson.a}</div>
+              <button onClick={()=>onAsk(lesson.q)} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"7px 14px",background:`${section.color}15`,border:"none",borderRadius:10,fontSize:12,fontWeight:700,color:section.color,cursor:"pointer",fontFamily:"inherit"}}>
+                Ask AI Advisor →
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ─── Markdown renderer for AI chat ───────────────────────────────────────────
 const renderMd = (text) => {
@@ -176,6 +223,12 @@ export default function App() {
   const [aiMessages,setAiMessages] = useState([]);
   const [aiInput,setAiInput]       = useState("");
   const [aiLoading,setAiLoading]   = useState(false);
+  const [suggestionCat,setSuggestionCat] = useState("My Finances");
+  const [showOnboarding,setShowOnboarding] = useState(false);
+  const [onboardStep,setOnboardStep]       = useState(0);
+  const [showUpgrade,setShowUpgrade]       = useState(false);
+  const [upgradeBilling,setUpgradeBilling] = useState("monthly");
+  const [upgradeLoading,setUpgradeLoading] = useState(false);
   const [uploadedFile,setUploadedFile] = useState(null);
   const [uploadPreview,setUploadPreview] = useState(null);
   const [analyzing,setAnalyzing]   = useState(false);
@@ -237,8 +290,10 @@ export default function App() {
       };
       setData(newData);
       persist(newData);
-      // Show onboarding for brand new users
-      if ((settings?.monthly_income ?? 0) === 0) setShowOnboarding(true);
+      // Show onboarding only once, for brand new users who haven't seen it
+      if (!localStorage.getItem(ONBOARD_KEY) && (settings?.monthly_income ?? 0) === 0) {
+        setShowOnboarding(true);
+      }
     } catch(e) {
       console.log("Load error:", e);
     }
@@ -502,6 +557,25 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
     }
   };
 
+  // ── Stripe Upgrade ───────────────────────────────────────────────────────
+  const PRICES = {
+    pro:      { monthly:"price_1TDvC2EHLJtYfhmkOqOXTxMe", annual:"price_1TDvFnEHLJtYfhmkUAJLYCpG" },
+    business: { monthly:"price_1TDvFOEHLJtYfhmkGmcEEyv9", annual:"price_1TDvFOEHLJtYfhmkZQ3HhjTy" },
+  };
+  const handleUpgrade = async (planKey) => {
+    if (!user) return;
+    setUpgradeLoading(true);
+    try {
+      const priceId = PRICES[planKey][upgradeBilling];
+      const { data: d, error } = await supabase.functions.invoke("stripe-checkout", {
+        body: { priceId, userId: user.id, email: user.email },
+      });
+      if (error) throw error;
+      if (d?.url) window.location.href = d.url;
+    } catch(e) { alert("Could not start checkout. Please try again."); }
+    finally { setUpgradeLoading(false); }
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -520,13 +594,43 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
   // Auto-scroll chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
 
-  // Suggested prompts seeded with user's actual data
+  // Suggested prompts — categorized
   const suggestions = [
-    `Where is most of my money going each month?`,
-    `Am I on track to stay in budget this month?`,
-    `How can I increase my daily allowance?`,
-    `What's eating up my pool the fastest?`,
-    `Give me a simple plan to save ${fmt(myPoolReal * 0.1)} this month`,
+    {cat:"My Finances", prompts:[
+      `Where is most of my money going each month?`,
+      `Am I on track to stay in budget this month?`,
+      `How can I increase my daily allowance?`,
+      `Give me a simple plan to save ${fmt(myPoolReal * 0.1)} this month`,
+      `What bills should I consider cutting?`,
+    ]},
+    {cat:"Retirement", prompts:[
+      `How does a 401k work and how much should I contribute?`,
+      `What's the difference between a Roth IRA and Traditional IRA?`,
+      `How much do I need to retire comfortably?`,
+      `Should I prioritize my 401k or pay off debt first?`,
+      `What is a Roth IRA conversion ladder?`,
+    ]},
+    {cat:"Benefits & Tax", prompts:[
+      `What's the difference between an HSA and FSA?`,
+      `How do I lower my taxable income?`,
+      `What tax deductions can I take as a W-2 employee?`,
+      `What is a dependent care FSA and how does it help families?`,
+      `How does the standard deduction work?`,
+    ]},
+    {cat:"Investing", prompts:[
+      `How do I start investing with a small amount of money?`,
+      `What is an index fund and why do people recommend it?`,
+      `What's the difference between stocks, ETFs, and mutual funds?`,
+      `How does compound interest work over time?`,
+      `What is dollar-cost averaging?`,
+    ]},
+    {cat:"Debt & Savings", prompts:[
+      `What's the fastest way to pay off credit card debt?`,
+      `What is the debt avalanche vs debt snowball method?`,
+      `How much should I have in an emergency fund?`,
+      `How do I build credit as a young adult?`,
+      `Should I pay off debt or invest first?`,
+    ]},
   ];
 
   const statusMsg = over
@@ -721,6 +825,191 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
       `}</style>
 
       <div className="app-bg">
+
+        {/* ── Onboarding Modal ─────────────────────────────────────────────── */}
+        {showOnboarding&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}}>
+            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease",maxHeight:"92vh",overflowY:"auto"}}>
+              <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
+              {/* Progress bar */}
+              <div style={{display:"flex",gap:5,marginBottom:24}}>
+                {[0,1,2,3,4,5].map(s=>(
+                  <div key={s} style={{height:4,borderRadius:2,background:s<=onboardStep?"#1a1a2e":"#ece9e0",flex:s===onboardStep?2:1,transition:"all 0.3s"}}/>
+                ))}
+              </div>
+
+              {/* Step 0: Welcome */}
+              {onboardStep===0&&(<>
+                <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>Welcome to DayFlow 👋</div>
+                <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:20}}>Your personal daily finance tracker. Let's get everything set up so DayFlow works perfectly for your life.</div>
+                <div style={{background:"#f8f7f2",borderRadius:18,padding:20,marginBottom:20,border:"1px solid #ece9e0"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:14}}>Here's how DayFlow works</div>
+                  {[["💰","Enter your take-home income"],["🧾","Add recurring bills & subscriptions"],["👨‍👩‍👧","Optionally add family members to pool income"],["📅","Get a personalized daily spending budget"],["🤖","Ask the AI Advisor anything about your money"]].map(([icon,text],i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                      <span style={{fontSize:18}}>{icon}</span>
+                      <span style={{fontSize:14,fontWeight:500,color:"#1a1a2e"}}>{text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{background:"#e8f5e9",borderRadius:14,padding:"12px 16px",marginBottom:20,fontSize:13,color:"#2e7d32",lineHeight:1.5}}>
+                  🎯 <strong>The goal:</strong> Know exactly how much you can spend each day without stress — so the money left over becomes real savings.
+                </div>
+                <button onClick={()=>setOnboardStep(1)} style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Let's get started →</button>
+              </>)}
+
+              {/* Step 1: Income */}
+              {onboardStep===1&&(<>
+                <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 1 of 5</div>
+                <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>What's your monthly take-home?</div>
+                <div style={{fontSize:14,color:"#9e9b95",marginBottom:10,lineHeight:1.6}}>Enter your income <strong>after taxes</strong> — the amount that actually hits your bank account each month.</div>
+                <div style={{background:"#fff8e1",borderRadius:12,padding:"10px 14px",marginBottom:18,border:"1px solid #ffe082",fontSize:12,color:"#7a5800"}}>💡 Paid bi-weekly? Multiply one paycheck by 2.17 to get your monthly take-home.</div>
+                <div style={{position:"relative",marginBottom:20}}>
+                  <span style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:18,fontWeight:600,color:"#9e9b95"}}>$</span>
+                  <input type="number" placeholder="0" value={incStr} onChange={e=>setIncStr(e.target.value)}
+                    style={{width:"100%",padding:"16px 16px 16px 36px",fontSize:22,fontWeight:700,border:"2px solid #ece9e0",borderRadius:16,outline:"none",fontFamily:"inherit"}} autoFocus/>
+                </div>
+                <div style={{display:"flex",gap:12}}>
+                  <button onClick={()=>setOnboardStep(0)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
+                  <button onClick={()=>{
+                    const inc=parseFloat(incStr)||0;
+                    if(inc<=0){alert("Please enter your monthly income");return;}
+                    const nd={...data,monthlyIncome:inc};
+                    setData(nd);persist(nd);
+                    if(user)saveToSupabase(nd,user.id);
+                    setOnboardStep(2);
+                  }} style={{flex:2,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Continue →</button>
+                </div>
+              </>)}
+
+              {/* Step 2: Bills */}
+              {onboardStep===2&&(<>
+                <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 2 of 5</div>
+                <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Add your recurring bills</div>
+                <div style={{fontSize:14,color:"#9e9b95",marginBottom:14,lineHeight:1.6}}>Bills get subtracted from your income first. What's left becomes your spendable pool — divided across the month for your daily budget.</div>
+                <div style={{background:"#f8f7f2",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #ece9e0"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Common bills to add in the Bills tab</div>
+                  {[["🏠","Rent / Mortgage"],["🚗","Car payment"],["📱","Phone"],["💡","Utilities"],["🎬","Subscriptions (Netflix, Spotify…)"],["🏥","Insurance (health, car, renters)"],["💳","Minimum debt payments"]].map(([icon,label])=>(
+                    <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:"1px solid #f0efe9"}}>
+                      <span style={{fontSize:15}}>{icon}</span>
+                      <span style={{fontSize:13,color:"#1a1a2e"}}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={()=>setOnboardStep(1)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"13px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
+                  <button onClick={()=>{setShowOnboarding(false);localStorage.setItem(ONBOARD_KEY,"1");setTab("recurring");}} style={{flex:1,background:"#f0f0ff",color:"#7048e8",border:"1px solid #d8d0ff",borderRadius:16,padding:"13px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add bills now</button>
+                  <button onClick={()=>setOnboardStep(3)} style={{flex:1,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"13px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Skip →</button>
+                </div>
+              </>)}
+
+              {/* Step 3: Household */}
+              {onboardStep===3&&(<>
+                <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 3 of 5</div>
+                <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Do you share finances?</div>
+                <div style={{fontSize:14,color:"#9e9b95",marginBottom:14,lineHeight:1.6}}>DayFlow supports household mode — combine income from a partner, spouse, or family member to get a shared daily budget that reflects your real household finances.</div>
+                <div style={{background:"#f8f7f2",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #ece9e0"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Household mode lets you</div>
+                  {[["👩‍❤️‍👨","Pool income from multiple earners"],["📊","See combined bills vs combined income"],["👧","Track each person's contribution"],["🏦","Get a household daily spending budget"]].map(([icon,text])=>(
+                    <div key={text} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"1px solid #f0efe9"}}>
+                      <span style={{fontSize:16}}>{icon}</span>
+                      <span style={{fontSize:13,color:"#1a1a2e"}}>{text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{fontSize:13,color:"#9e9b95",marginBottom:16,textAlign:"center"}}>You can set this up now in the <strong>Household</strong> tab, or skip and do it later.</div>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={()=>setOnboardStep(2)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"13px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
+                  <button onClick={()=>{setShowOnboarding(false);localStorage.setItem(ONBOARD_KEY,"1");setTab("household");}} style={{flex:1,background:"#fff3e0",color:"#e65100",border:"1px solid #ffcc80",borderRadius:16,padding:"13px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set up household</button>
+                  <button onClick={()=>setOnboardStep(4)} style={{flex:1,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"13px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Skip →</button>
+                </div>
+              </>)}
+
+              {/* Step 4: AI Advisor */}
+              {onboardStep===4&&(<>
+                <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 4 of 5</div>
+                <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Meet your AI Advisor 🤖</div>
+                <div style={{fontSize:14,color:"#9e9b95",marginBottom:14,lineHeight:1.6}}>DayFlow includes a personal financial advisor powered by AI. It knows your income, bills, and spending — and can answer any money question.</div>
+                <div style={{background:"#f3eeff",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #d8d0ff"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#7048e8",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Ask it things like</div>
+                  {["How does a Roth IRA work?","Am I saving enough each month?","What's the difference between HSA and FSA?","How can I pay off debt faster?","Should I invest or build my emergency fund first?"].map(q=>(
+                    <div key={q} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #ede6ff"}}>
+                      <span style={{color:"#7048e8",fontSize:13,flexShrink:0}}>→</span>
+                      <span style={{fontSize:13,color:"#1a1a2e"}}>{q}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{background:"#f8f7f2",borderRadius:14,padding:12,marginBottom:18,border:"1px solid #ece9e0",fontSize:13,color:"#555",lineHeight:1.6}}>
+                  📄 <strong>Upload a paystub</strong> in the Advisor tab and it will read your deductions, 401k contributions, and tax withholdings to give you personalized advice.
+                </div>
+                <div style={{display:"flex",gap:12}}>
+                  <button onClick={()=>setOnboardStep(3)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
+                  <button onClick={()=>setOnboardStep(5)} style={{flex:2,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Continue →</button>
+                </div>
+              </>)}
+
+              {/* Step 5: All set */}
+              {onboardStep===5&&(<>
+                <div style={{fontSize:26,fontWeight:800,marginBottom:6,textAlign:"center"}}>You're all set! 🎉</div>
+                <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.6,marginBottom:18,textAlign:"center"}}>Here's your personalized daily spending budget based on what you've entered so far.</div>
+                <div style={{background:"#f8f7f2",borderRadius:20,padding:24,marginBottom:18,border:"1px solid #ece9e0",textAlign:"center"}}>
+                  <div style={{fontSize:13,color:"#9e9b95",marginBottom:4}}>Your daily spending budget</div>
+                  <div style={{fontSize:44,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.02em"}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
+                  <div style={{fontSize:12,color:"#bbb9b0",marginTop:4}}>per day to spend freely</div>
+                </div>
+                <div style={{background:"#f0fff4",borderRadius:14,padding:14,marginBottom:18,border:"1px solid #b2f2bb",fontSize:13,color:"#1a6b2a",lineHeight:1.6}}>
+                  💡 <strong>Quick tips:</strong> Log spending on the <strong>Today</strong> tab. Add bills in <strong>Bills</strong>. Ask your <strong>AI Advisor</strong> anything. Explore <strong>Financial Education</strong> in the More menu for free guides on 401k, Roth IRA, HSA, and more.
+                </div>
+                <button onClick={()=>{setShowOnboarding(false);localStorage.setItem(ONBOARD_KEY,"1");}} style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Start tracking →</button>
+              </>)}
+            </div>
+          </div>
+        )}
+
+        {/* ── Upgrade Modal ────────────────────────────────────────────────── */}
+        {showUpgrade&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}} onClick={()=>setShowUpgrade(false)}>
+            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease",maxHeight:"92vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+              <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
+              <div style={{textAlign:"center",marginBottom:20}}>
+                <div style={{fontSize:24,fontWeight:800,marginBottom:6}}>Upgrade DayFlow</div>
+                <div style={{fontSize:14,color:"#9e9b95"}}>Unlock powerful features for your finances</div>
+              </div>
+              <div style={{display:"flex",background:"#f8f7f2",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #ece9e0"}}>
+                {["monthly","annual"].map(b=>(
+                  <button key={b} onClick={()=>setUpgradeBilling(b)} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:upgradeBilling===b?"#1a1a2e":"transparent",color:upgradeBilling===b?"#fff":"#9e9b95",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                    {b==="monthly"?"Monthly":"Annual"}{b==="annual"&&<span style={{marginLeft:6,background:"#2f9e44",color:"#fff",borderRadius:6,padding:"1px 6px",fontSize:10}}>Save 20%</span>}
+                  </button>
+                ))}
+              </div>
+              {[
+                {key:"pro",name:"Pro",color:"#7048e8",price:{monthly:9.99,annual:7.99},features:["Unlimited transaction history","AI Advisor (priority)","Spending insights & trends","Receipt scanning","Export to CSV"]},
+                {key:"business",name:"Business",color:"#f08c00",price:{monthly:24.99,annual:19.99},features:["Everything in Pro","Business expense tracking","Mileage & tax deductions","Multiple income sources","Priority support"]},
+              ].map(plan=>(
+                <div key={plan.key} style={{border:`2px solid ${plan.color}20`,borderRadius:20,padding:20,marginBottom:14,position:"relative",overflow:"hidden"}}>
+                  <div style={{position:"absolute",top:0,left:0,right:0,height:4,background:plan.color}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                    <div>
+                      <div style={{fontSize:18,fontWeight:800,color:plan.color}}>{plan.name}</div>
+                      <div style={{fontSize:28,fontWeight:800,marginTop:2}}>${upgradeBilling==="monthly"?plan.price.monthly:plan.price.annual}<span style={{fontSize:13,fontWeight:500,color:"#9e9b95"}}>/mo</span></div>
+                    </div>
+                  </div>
+                  {plan.features.map(f=>(
+                    <div key={f} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <div style={{width:16,height:16,borderRadius:"50%",background:`${plan.color}20`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><polyline points="4 10 8 14 16 6" stroke={plan.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </div>
+                      <span style={{fontSize:13,color:"#1a1a2e"}}>{f}</span>
+                    </div>
+                  ))}
+                  <button onClick={()=>handleUpgrade(plan.key)} disabled={upgradeLoading} style={{width:"100%",marginTop:16,background:plan.color,color:"#fff",border:"none",borderRadius:14,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:upgradeLoading?0.7:1,fontFamily:"inherit"}}>
+                    {upgradeLoading?"Loading…":`Upgrade to ${plan.name} →`}
+                  </button>
+                </div>
+              ))}
+              <button onClick={()=>setShowUpgrade(false)} style={{width:"100%",background:"transparent",border:"none",color:"#9e9b95",fontSize:14,cursor:"pointer",padding:"8px",fontFamily:"inherit"}}>Maybe later</button>
+            </div>
+          </div>
+        )}
 
         {/* ── Onboarding Modal ─────────────────────────────────────────────── */}
         {showOnboarding&&(
@@ -2016,8 +2305,17 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
                   {/* Suggested prompts */}
                   <div className="card" style={{padding:20}}>
                     <div className="sec-hd">Ask me anything</div>
+                    {/* Category tabs */}
+                    <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:14,paddingBottom:2}}>
+                      {suggestions.map(s=>(
+                        <button key={s.cat} onClick={()=>setSuggestionCat(s.cat)}
+                          style={{flexShrink:0,padding:"6px 12px",borderRadius:20,border:"1.5px solid",borderColor:suggestionCat===s.cat?"#1a1a2e":"#ece9e0",background:suggestionCat===s.cat?"#1a1a2e":"#f8f7f2",color:suggestionCat===s.cat?"#fff":"#9e9b95",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                          {s.cat}
+                        </button>
+                      ))}
+                    </div>
                     <C style={{gap:8}}>
-                      {suggestions.map((s,i)=>(
+                      {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).map((s,i)=>(
                         <button key={i} onClick={()=>sendAiMessage(s)}
                           style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"12px 16px",textAlign:"left",cursor:"pointer",fontSize:13,color:"#1a1a2e",fontFamily:"inherit",fontWeight:500,transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
                           {s}
@@ -2130,7 +2428,7 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
               {/* Quick prompts shown below chat */}
               {aiMessages.length>0&&!aiLoading&&(
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  {suggestions.slice(0,3).map((s,i)=>(
+                  {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).slice(0,3).map((s,i)=>(
                     <button key={i} onClick={()=>sendAiMessage(s)}
                       style={{background:"#fff",border:"1px solid #ece9e0",borderRadius:20,padding:"8px 14px",fontSize:12,color:"#6b6965",fontFamily:"inherit",fontWeight:500,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}}>
                       {s.length>32?s.slice(0,32)+"…":s}
@@ -2139,6 +2437,59 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
                 </div>
               )}
 
+            </C>
+          )}
+
+          {/* ══════ LEARN ══════ */}
+          {tab==="learn"&&(
+            <C style={{gap:16}} className="page">
+              <div className="hero-card" style={{padding:26}}>
+                <div className="hero-band" style={{background:"linear-gradient(90deg,#7048e8,#2f9e44)"}}/>
+                <div style={{marginTop:8}}>
+                  <div style={{fontSize:24,fontWeight:800,marginBottom:6}}>Financial Education 📚</div>
+                  <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.6}}>Everything you need to build real financial confidence — from budgeting basics to retirement planning. Tap any question to learn more, then ask the AI Advisor to go deeper.</div>
+                </div>
+              </div>
+              {[
+                {emoji:"💰",title:"Budgeting Basics",color:"#2f9e44",lessons:[
+                  {q:"What is the 50/30/20 rule?",a:"Split your take-home pay into three buckets: 50% for needs (rent, food, utilities), 30% for wants (dining out, entertainment), and 20% for savings and debt repayment. It's a great starting point — adjust to fit your life."},
+                  {q:"What's the difference between gross and net income?",a:"Gross income is what you earn before taxes and deductions. Net income (take-home pay) is what actually lands in your bank account. Always budget based on net income — that's what DayFlow uses too."},
+                  {q:"How big should my emergency fund be?",a:"Aim for 3–6 months of essential living expenses in a high-yield savings account. Start with a $1,000 starter fund, then build toward the full amount. This protects you from job loss, medical bills, or car repairs without going into debt."},
+                  {q:"How do I actually stick to a budget?",a:"Track every purchase for 30 days — awareness alone changes behavior. Automate savings on payday before you can spend it. Give yourself a small 'fun money' allowance so you don't feel deprived and quit. DayFlow's daily budget makes this simple."},
+                ]},
+                {emoji:"🏦",title:"401k & Employer Benefits",color:"#1971c2",lessons:[
+                  {q:"How does a 401k work?",a:"A 401k is a retirement account through your employer. You contribute pre-tax money (reducing your taxable income now), it grows tax-deferred, and you pay taxes when you withdraw in retirement. In 2024 you can contribute up to $23,000/year."},
+                  {q:"What is an employer match?",a:"Many employers match a percentage of what you contribute — e.g., 100% match up to 3% of your salary. That's an instant 100% return. Always contribute at least enough to get the full match. Not doing so is leaving free money on the table."},
+                  {q:"Traditional 401k vs Roth 401k — what's the difference?",a:"Traditional 401k: pre-tax contributions, pay taxes on withdrawal. Roth 401k: after-tax contributions, withdrawals in retirement are tax-free. If you expect to be in a higher tax bracket later, Roth is usually better. If you need the tax break now, Traditional wins."},
+                  {q:"What is vesting?",a:"Vesting determines when employer contributions officially become yours. Cliff vesting means you get 100% after a set period (e.g., 3 years). Graded vesting means you earn a portion each year. Your own contributions are always 100% yours immediately."},
+                ]},
+                {emoji:"📈",title:"Roth IRA vs Traditional IRA",color:"#7048e8",lessons:[
+                  {q:"What is an IRA?",a:"An Individual Retirement Account (IRA) is a retirement savings account you open yourself — not tied to your employer. You can contribute up to $7,000/year in 2024 ($8,000 if 50+). There are two main types: Roth and Traditional."},
+                  {q:"How does a Roth IRA work?",a:"You contribute after-tax dollars. Your money grows tax-free, and qualified withdrawals in retirement are completely tax-free. To contribute the full amount in 2024, income must be under $146,000 (single) or $230,000 (married). No required minimum distributions."},
+                  {q:"How does a Traditional IRA work?",a:"Contributions may be tax-deductible (lowering your taxable income now). Money grows tax-deferred. You pay regular income tax on withdrawals in retirement. Required minimum distributions start at age 73."},
+                  {q:"Which should I choose — Roth or Traditional?",a:"Simple rule: young or low tax bracket now → choose Roth (pay low taxes now, withdraw tax-free later). High tax bracket now, expect lower income in retirement → Traditional may save more. Many people do both for tax diversification."},
+                  {q:"Can I have both a 401k and an IRA?",a:"Yes! Ideal order: (1) contribute to 401k up to employer match, (2) max out Roth IRA, (3) go back and max out 401k. This gives you tax diversification and flexibility in retirement."},
+                ]},
+                {emoji:"🏥",title:"HSA & FSA",color:"#e03131",lessons:[
+                  {q:"What is an HSA?",a:"A Health Savings Account is available only with a high-deductible health plan. Contributions are pre-tax, growth is tax-free, and withdrawals for qualified medical expenses are tax-free — the 'triple tax advantage.' Funds roll over every year and never expire. You can even invest the balance."},
+                  {q:"What is an FSA?",a:"A Flexible Spending Account lets you set aside pre-tax money for medical or dependent care. Main downside: most FSAs have a 'use it or lose it' rule — funds expire at year end (some plans allow a $610 rollover). Contribution limit is $3,200/year in 2024."},
+                  {q:"HSA vs FSA — which is better?",a:"If you're eligible for an HSA, it's almost always better: funds roll over forever, can be invested and grow, and stay with you if you change jobs. FSA is use-it-or-lose-it and employer-tied. The downside of HSA is it requires a high-deductible health plan."},
+                  {q:"What is a Dependent Care FSA?",a:"A Dependent Care FSA lets you pay for childcare, after-school programs, or elder care with pre-tax dollars — up to $5,000/year per household. For a family in the 22% tax bracket paying for daycare, this saves over $1,100/year."},
+                ]},
+                {emoji:"💳",title:"Debt & Credit",color:"#f08c00",lessons:[
+                  {q:"Debt avalanche vs debt snowball — which is better?",a:"Avalanche: pay minimum on all debts, throw extra money at the highest interest rate first. Saves the most money mathematically. Snowball: pay minimum on all, focus on the smallest balance first. Slightly less efficient but the psychological wins keep people motivated. Both work — pick the one you'll actually stick to."},
+                  {q:"How is my credit score calculated?",a:"Payment history (35%) — always pay on time. Amounts owed (30%) — keep utilization below 30%, ideally under 10%. Length of credit history (15%). Credit mix (10%). New credit (10%) — too many hard inquiries can hurt temporarily."},
+                  {q:"How do I build credit from scratch?",a:"Start with a secured credit card. Use it for one small recurring bill and pay the full balance monthly. After 6–12 months you'll have a score. Then apply for a regular card. Being added as an authorized user on a family member's old account can also help you inherit their credit history."},
+                ]},
+                {emoji:"📊",title:"Investing Basics",color:"#2f9e44",lessons:[
+                  {q:"What is an index fund?",a:"An index fund tracks a market index like the S&P 500 — the 500 largest US companies. Instead of picking individual stocks, you own a tiny slice of all of them. Very low fees and historically outperforms most actively managed funds over the long term."},
+                  {q:"How does compound interest work?",a:"You earn interest on your interest. $10,000 at 7% annual return becomes $19,671 after 10 years, $38,697 after 20 years, and $76,123 after 30 years — without adding a dollar. Time in the market is more powerful than the amount you invest."},
+                  {q:"What is dollar-cost averaging?",a:"Instead of investing a lump sum all at once, invest a fixed amount at regular intervals (e.g., $200/month) regardless of market conditions. When prices are low your $200 buys more shares. When prices are high, fewer. This reduces the impact of volatility and removes the temptation to time the market."},
+                  {q:"What's the difference between stocks, ETFs, and mutual funds?",a:"Stock: ownership in one company — high risk/reward. ETF: a basket of stocks that trades like a stock — instant diversification, low cost. Mutual fund: similar to ETF but priced once per day, often actively managed with higher fees. Most people are best served by low-cost index ETFs."},
+                ]},
+              ].map(section=>(
+                <LearnSection key={section.title} section={section} onAsk={(q)=>{setTab("advisor");setTimeout(()=>sendAiMessage(q),150);}}/>
+              ))}
             </C>
           )}
 
@@ -2258,8 +2609,9 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
               animation:"menuPop 0.2s cubic-bezier(.34,1.56,.64,1)",
             }}>
               {[
-                {id:"bank",    icon:"bank",  label:"Bank connections", sub:"Link your bank account"},
-                {id:"settings",icon:"gear",  label:"Setup",            sub:"Income, pool & preferences"},
+                {id:"bank",    icon:"bank",  label:"Bank connections",      sub:"Link your bank account"},
+                {id:"learn",   icon:"heart", label:"Financial Education",    sub:"Guides on saving, investing & more"},
+                {id:"settings",icon:"gear",  label:"Setup",                  sub:"Income, pool & preferences"},
               ].map((item,i)=>(
                 <button key={item.id} onClick={()=>{setTab(item.id);setMenuOpen(false);}}
                   style={{
