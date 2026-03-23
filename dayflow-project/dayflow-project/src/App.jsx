@@ -51,6 +51,28 @@ const fmt     = (n) => new Intl.NumberFormat("en-US",{style:"currency",currency:
 const fmtFull = (n) => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.abs(n??0));
 const fmtDate = (k) => new Date(k+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
 
+// ─── Markdown renderer for AI chat ───────────────────────────────────────────
+const renderMd = (text) => {
+  if (!text) return null;
+  return text.split("\n").map((line, i, arr) => {
+    const parts = [];
+    let remaining = line;
+    let key = 0;
+    while (remaining.length > 0) {
+      const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+      if (boldMatch) {
+        if (boldMatch.index > 0) parts.push(<span key={key++}>{remaining.slice(0, boldMatch.index)}</span>);
+        parts.push(<strong key={key++} style={{fontWeight:700}}>{boldMatch[1]}</strong>);
+        remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+      } else {
+        parts.push(<span key={key++}>{remaining}</span>);
+        break;
+      }
+    }
+    return <span key={i}>{parts}{i < arr.length - 1 && <br/>}</span>;
+  });
+};
+
 // ─── Mock Plaid ───────────────────────────────────────────────────────────────
 const MOCK_PLAID = (() => {
   const t = new Date();
@@ -168,6 +190,11 @@ export default function App() {
   const [authError,setAuthError]     = useState("");
   const [authBusy,setAuthBusy]       = useState(false);
   const [syncBusy,setSyncBusy]       = useState(false);
+  const [showOnboarding,setShowOnboarding] = useState(false);
+  const [onboardStep,setOnboardStep]       = useState(0);
+  const [showUpgrade,setShowUpgrade]       = useState(false);
+  const [upgradeBilling,setUpgradeBilling] = useState("monthly");
+  const [upgradeLoading,setUpgradeLoading] = useState(false);
 
   // ── Auth listener ───────────────────────────────────────────────────────────
  useEffect(()=>{
@@ -210,6 +237,8 @@ export default function App() {
       };
       setData(newData);
       persist(newData);
+      // Show onboarding for brand new users
+      if ((settings?.monthly_income ?? 0) === 0) setShowOnboarding(true);
     } catch(e) {
       console.log("Load error:", e);
     }
@@ -451,6 +480,28 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
     setAnalyzing(false);
   };
 
+  // ── Stripe Upgrade ──────────────────────────────────────────────────────────
+  const PRICES = {
+    pro:      { monthly: "price_1TDvC2EHLJtYfhmkOqOXTxMe", annual: "price_1TDvFnEHLJtYfhmkUAJLYCpG" },
+    business: { monthly: "price_1TDvFOEHLJtYfhmkGmcEEyv9", annual: "price_1TDvFOEHLJtYfhmkZQ3HhjTy" },
+  };
+  const handleUpgrade = async (planKey) => {
+    if (!user) return;
+    setUpgradeLoading(true);
+    try {
+      const priceId = PRICES[planKey][upgradeBilling];
+      const { data, error } = await supabase.functions.invoke("stripe-checkout", {
+        body: { priceId, userId: user.id, email: user.email },
+      });
+      if (error) throw error;
+      if (data?.url) window.location.href = data.url;
+    } catch(e) {
+      alert("Could not start checkout. Please try again.");
+    } finally {
+      setUpgradeLoading(false);
+    }
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -671,6 +722,118 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
 
       <div className="app-bg">
 
+        {/* ── Onboarding Modal ─────────────────────────────────────────────── */}
+        {showOnboarding&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}}>
+            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease"}}>
+              <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 24px"}}/>
+              {onboardStep===0&&(
+                <>
+                  <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>Welcome to DayFlow 👋</div>
+                  <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:28}}>Let's set up your daily spending allowance in 2 quick steps. It only takes a minute.</div>
+                  <div style={{background:"#f8f7f2",borderRadius:18,padding:20,marginBottom:24,border:"1px solid #ece9e0"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>How it works</div>
+                    {[["💰","Enter last month's take-home income"],["🧾","Add your recurring bills"],["📅","We calculate your daily spending budget"]].map(([icon,text])=>(
+                      <div key={text} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                        <span style={{fontSize:20}}>{icon}</span>
+                        <span style={{fontSize:14,fontWeight:500,color:"#1a1a2e"}}>{text}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={()=>setOnboardStep(1)} style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Get started →</button>
+                </>
+              )}
+              {onboardStep===1&&(
+                <>
+                  <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>What's your monthly take-home?</div>
+                  <div style={{fontSize:14,color:"#9e9b95",marginBottom:24}}>After taxes — what hits your bank account each month?</div>
+                  <div style={{position:"relative",marginBottom:24}}>
+                    <span style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:18,fontWeight:600,color:"#9e9b95"}}>$</span>
+                    <input
+                      type="number" placeholder="0"
+                      value={incStr}
+                      onChange={e=>setIncStr(e.target.value)}
+                      style={{width:"100%",padding:"16px 16px 16px 36px",fontSize:22,fontWeight:700,border:"2px solid #ece9e0",borderRadius:16,outline:"none",fontFamily:"inherit"}}
+                      autoFocus
+                    />
+                  </div>
+                  <div style={{display:"flex",gap:12}}>
+                    <button onClick={()=>setOnboardStep(0)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer"}}>← Back</button>
+                    <button onClick={()=>{
+                      const inc = parseFloat(incStr)||0;
+                      if (inc<=0){alert("Please enter your monthly income");return;}
+                      const nd={...data,monthlyIncome:inc};
+                      setData(nd); persist(nd);
+                      if(user) saveToSupabase(nd,user.id);
+                      setOnboardStep(2);
+                    }} style={{flex:2,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Continue →</button>
+                  </div>
+                </>
+              )}
+              {onboardStep===2&&(
+                <>
+                  <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>You're all set! 🎉</div>
+                  <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:24}}>Your daily allowance is now calculated. Head to the <strong>Bills</strong> tab to add your recurring expenses for an even more accurate number.</div>
+                  <div style={{background:"#f8f7f2",borderRadius:18,padding:20,marginBottom:24,border:"1px solid #ece9e0",textAlign:"center"}}>
+                    <div style={{fontSize:13,color:"#9e9b95",marginBottom:4}}>Your daily spending budget</div>
+                    <div style={{fontSize:36,fontWeight:800,color:"#1a1a2e"}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
+                    <div style={{fontSize:12,color:"#bbb9b0",marginTop:4}}>per day</div>
+                  </div>
+                  <button onClick={()=>setShowOnboarding(false)} style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Start tracking →</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Upgrade Modal ────────────────────────────────────────────────── */}
+        {showUpgrade&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}} onClick={()=>setShowUpgrade(false)}>
+            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease"}} onClick={e=>e.stopPropagation()}>
+              <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
+              <div style={{textAlign:"center",marginBottom:20}}>
+                <div style={{fontSize:24,fontWeight:800,marginBottom:6}}>Upgrade DayFlow</div>
+                <div style={{fontSize:14,color:"#9e9b95"}}>Unlock powerful features for your finances</div>
+              </div>
+              {/* Billing toggle */}
+              <div style={{display:"flex",background:"#f8f7f2",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #ece9e0"}}>
+                {["monthly","annual"].map(b=>(
+                  <button key={b} onClick={()=>setUpgradeBilling(b)} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:upgradeBilling===b?"#1a1a2e":"transparent",color:upgradeBilling===b?"#fff":"#9e9b95",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                    {b==="monthly"?"Monthly":"Annual"}{b==="annual"&&<span style={{marginLeft:6,background:"#2f9e44",color:"#fff",borderRadius:6,padding:"1px 6px",fontSize:10}}>Save 20%</span>}
+                  </button>
+                ))}
+              </div>
+              {/* Plan cards */}
+              {[
+                {key:"pro",name:"Pro",color:"#7048e8",price:{monthly:9.99,annual:7.99},features:["Unlimited transaction history","AI Advisor (priority)","Spending insights & trends","Receipt scanning","Export to CSV"]},
+                {key:"business",name:"Business",color:"#f08c00",price:{monthly:24.99,annual:19.99},features:["Everything in Pro","Business expense tracking","Mileage & tax deductions","Multiple income sources","Priority support"]},
+              ].map(plan=>(
+                <div key={plan.key} style={{border:`2px solid ${plan.color}20`,borderRadius:20,padding:20,marginBottom:14,position:"relative",overflow:"hidden"}}>
+                  <div style={{position:"absolute",top:0,left:0,right:0,height:4,background:plan.color}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                    <div>
+                      <div style={{fontSize:18,fontWeight:800,color:plan.color}}>{plan.name}</div>
+                      <div style={{fontSize:28,fontWeight:800,marginTop:2}}>${upgradeBilling==="monthly"?plan.price.monthly:plan.price.annual}<span style={{fontSize:13,fontWeight:500,color:"#9e9b95"}}>/mo</span></div>
+                    </div>
+                  </div>
+                  {plan.features.map(f=>(
+                    <div key={f} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <div style={{width:16,height:16,borderRadius:"50%",background:`${plan.color}20`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><polyline points="4 10 8 14 16 6" stroke={plan.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </div>
+                      <span style={{fontSize:13,color:"#1a1a2e"}}>{f}</span>
+                    </div>
+                  ))}
+                  <button onClick={()=>handleUpgrade(plan.key)} disabled={upgradeLoading} style={{width:"100%",marginTop:16,background:plan.color,color:"#fff",border:"none",borderRadius:14,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:upgradeLoading?0.7:1,fontFamily:"inherit"}}>
+                    {upgradeLoading?"Loading…":`Upgrade to ${plan.name} →`}
+                  </button>
+                </div>
+              ))}
+              <button onClick={()=>setShowUpgrade(false)} style={{width:"100%",background:"transparent",border:"none",color:"#9e9b95",fontSize:14,cursor:"pointer",padding:"8px",fontFamily:"inherit"}}>Maybe later</button>
+            </div>
+          </div>
+        )}
+
         {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div style={{maxWidth:560,margin:"0 auto",padding:"28px 20px 0"}}>
           <R style={{justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -701,8 +864,13 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
                 </R>
               )}
               {needsSetup && !data.plaidConnected && (
-                <button className="btn" style={{padding:"9px 16px",fontSize:12,borderRadius:12}} onClick={()=>setTab("settings")}>
+                <button className="btn" style={{padding:"9px 16px",fontSize:12,borderRadius:12}} onClick={()=>setShowOnboarding(true)}>
                   Get started →
+                </button>
+              )}
+              {!needsSetup && data.plan==="free" && (
+                <button onClick={()=>setShowUpgrade(true)} style={{padding:"9px 16px",fontSize:12,borderRadius:12,background:"linear-gradient(135deg,#7048e8,#f08c00)",color:"#fff",border:"none",cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
+                  Upgrade ✦
                 </button>
               )}
               {user&&(
@@ -1908,9 +2076,7 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
                             }}>
                               {msg.isPaystub&&!msg.image
                                 ? "Analyzing your document…"
-                                : msg.content.split("\n").map((line,j)=>(
-                                    <span key={j}>{line}{j<msg.content.split("\n").length-1&&<br/>}</span>
-                                  ))
+                                : renderMd(msg.content)
                               }
                             </div>
                           )}
