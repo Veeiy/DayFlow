@@ -598,10 +598,6 @@ Format your response with clear sections. Be specific with dollar amounts.`;
     };
     reader.readAsDataURL(file);
   };
-
-    reader.readAsDataURL(file);
-  };
-
   // Auto-scroll chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
 
@@ -2804,3 +2800,4 @@ Format your response with clear sections. Be specific with dollar amounts.`;
       </div>
     </div>
   );
+}
