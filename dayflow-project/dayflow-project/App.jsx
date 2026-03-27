@@ -741,135 +741,120 @@ You can execute multiple actions in one response. Include them ALL at the end, e
 
   // ── Execute live actions from AI — full action library ──────────────────
   const executeDayflowActions = (actionsArr) => {
-    // We receive an array of parsed action objects and apply them all
-    // against a single accumulated data snapshot so multiple actions compose correctly
-    let d = {...data};
+    // Use functional setData so we always read the CURRENT state,
+    // not the stale closure captured when sendAiMessage started streaming.
+    setData(prev => {
+      let d = {...prev};
 
-    const applyAll = () => {
-      setData(d);
+      for (const action of actionsArr) {
+        try {
+          if (action.type === 'set_income') {
+            const amt = parseFloat(action.amount)||0;
+            if (amt > 0) { d = {...d, monthlyIncome: amt}; showToast(`Income updated to ${fmt(amt)}/mo ✓`); }
+
+          } else if (action.type === 'set_income_for_month') {
+            const amt = parseFloat(action.amount)||0;
+            const month = action.month || thisMonth();
+            if (amt > 0) {
+              d = {...d, monthlyIncomes: {...(d.monthlyIncomes||{}), [month]: amt}};
+              if (month === thisMonth()) d = {...d, monthlyIncome: amt};
+              showToast(`${month} income set to ${fmt(amt)} ✓`);
+            }
+
+          } else if (action.type === 'log_expense') {
+            const dateKey = action.date || todayKey();
+            const tx = {id: Date.now()+Math.random(), label: action.label||'Expense', amount: parseFloat(action.amount)||0, type: 'expense'};
+            const existing = d.dailyEntries[dateKey]||{transactions:[]};
+            d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: [...(existing.transactions||[]), tx]}}};
+            showToast(`−${fmtFull(tx.amount)} logged${action.date&&action.date!==todayKey()?' for '+action.date:''} ✓`);
+
+          } else if (action.type === 'log_income') {
+            const dateKey = action.date || todayKey();
+            const tx = {id: Date.now()+Math.random(), label: action.label||'Income', amount: parseFloat(action.amount)||0, type: 'income'};
+            const existing = d.dailyEntries[dateKey]||{transactions:[]};
+            d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: [...(existing.transactions||[]), tx]}}};
+            showToast(`+${fmtFull(tx.amount)} logged${action.date&&action.date!==todayKey()?' for '+action.date:''} ✓`);
+
+          } else if (action.type === 'remove_transaction') {
+            const dateKey = action.date || todayKey();
+            const label = (action.label||'').toLowerCase();
+            const existing = d.dailyEntries[dateKey]||{transactions:[]};
+            let removed = false;
+            const newTxs = [...(existing.transactions||[])].reverse().filter(t => {
+              if (!removed && t.label.toLowerCase().includes(label)) { removed = true; return false; }
+              return true;
+            }).reverse();
+            if (removed) {
+              d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: newTxs}}};
+              showToast(`Removed "${action.label}" ✓`);
+            }
+
+          } else if (action.type === 'clear_day') {
+            const dateKey = action.date || todayKey();
+            const existing = d.dailyEntries[dateKey]||{transactions:[]};
+            d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: []}}};
+            showToast(`Cleared all transactions for ${dateKey} ✓`);
+
+          } else if (action.type === 'add_bill') {
+            const bill = {
+              id: Date.now()+Math.random(),
+              name: action.name||'Bill',
+              amount: parseFloat(action.amount)||0,
+              frequency: action.frequency||'monthly',
+              category: action.category||'other',
+              dueDay: parseInt(action.dueDay)||1,
+            };
+            d = {...d, recurringPayments: [...(d.recurringPayments||[]), bill]};
+            showToast(`${bill.name} added to bills ✓`);
+
+          } else if (action.type === 'remove_bill') {
+            const nameQ = (action.name||'').toLowerCase();
+            const filtered = (d.recurringPayments||[]).filter(p => !p.name.toLowerCase().includes(nameQ));
+            if (filtered.length < (d.recurringPayments||[]).length) {
+              d = {...d, recurringPayments: filtered};
+              showToast(`${action.name} removed ✓`);
+            }
+
+          } else if (action.type === 'edit_bill') {
+            const nameQ = (action.name||'').toLowerCase();
+            const updated = (d.recurringPayments||[]).map(p => {
+              if (!p.name.toLowerCase().includes(nameQ)) return p;
+              return {
+                ...p,
+                ...(action.amount    !== undefined ? {amount:    parseFloat(action.amount)}  : {}),
+                ...(action.frequency !== undefined ? {frequency: action.frequency}           : {}),
+                ...(action.dueDay    !== undefined ? {dueDay:    parseInt(action.dueDay)}    : {}),
+                ...(action.category  !== undefined ? {category:  action.category}            : {}),
+                ...(action.newName   !== undefined ? {name:      action.newName}             : {}),
+              };
+            });
+            d = {...d, recurringPayments: updated};
+            showToast(`${action.name} updated ✓`);
+
+          } else if (action.type === 'set_member_income') {
+            const nameQ = (action.name||'').toLowerCase();
+            const updated = (d.members||[]).map(m =>
+              m.name.toLowerCase().includes(nameQ) ? {...m, monthlyIncome: parseFloat(action.amount)||0} : m
+            );
+            d = {...d, members: updated};
+            showToast(`${action.name}'s income updated ✓`);
+
+          } else if (action.type === 'toggle_household_mode') {
+            d = {...d, householdMode: !!action.enabled};
+            showToast(`Household mode ${action.enabled?'enabled':'disabled'} ✓`);
+
+          } else if (action.type === 'navigate') {
+            if (action.tab) setTab(action.tab);
+          }
+
+        } catch(e) { console.log('Action error:', action.type, e); }
+      }
+
+      // Persist and sync after all actions applied
       persist(d);
       debouncedSave(d);
-    };
-
-    for (const action of actionsArr) {
-      try {
-        // ── INCOME ──────────────────────────────────────────────────────
-        if (action.type === 'set_income') {
-          const amt = parseFloat(action.amount)||0;
-          if (amt > 0) {
-            d = {...d, monthlyIncome: amt};
-            showToast(`Income updated to ${fmt(amt)}/mo ✓`);
-          }
-
-        } else if (action.type === 'set_income_for_month') {
-          const amt = parseFloat(action.amount)||0;
-          const month = action.month || thisMonth();
-          if (amt > 0) {
-            const incomes = {...(d.monthlyIncomes||{}), [month]: amt};
-            d = {...d, monthlyIncomes: incomes};
-            // If it's the current month, also update the main income field
-            if (month === thisMonth()) d = {...d, monthlyIncome: amt};
-            showToast(`${month} income set to ${fmt(amt)} ✓`);
-          }
-
-        // ── LOG TRANSACTIONS ─────────────────────────────────────────────
-        } else if (action.type === 'log_expense') {
-          const dateKey = action.date || TODAY;
-          const tx = {id: Date.now()+Math.random(), label: action.label||'Expense', amount: parseFloat(action.amount)||0, type: 'expense'};
-          const existing = d.dailyEntries[dateKey]||{transactions:[]};
-          d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: [...(existing.transactions||[]), tx]}}};
-          showToast(`−${fmtFull(tx.amount)} logged${action.date&&action.date!==TODAY?' for '+action.date:''} ✓`);
-
-        } else if (action.type === 'log_income') {
-          const dateKey = action.date || TODAY;
-          const tx = {id: Date.now()+Math.random(), label: action.label||'Income', amount: parseFloat(action.amount)||0, type: 'income'};
-          const existing = d.dailyEntries[dateKey]||{transactions:[]};
-          d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: [...(existing.transactions||[]), tx]}}};
-          showToast(`+${fmtFull(tx.amount)} logged${action.date&&action.date!==TODAY?' for '+action.date:''} ✓`);
-
-        // ── REMOVE / FIX TRANSACTIONS ────────────────────────────────────
-        } else if (action.type === 'remove_transaction') {
-          const dateKey = action.date || TODAY;
-          const label = (action.label||'').toLowerCase();
-          const existing = d.dailyEntries[dateKey]||{transactions:[]};
-          const txs = existing.transactions||[];
-          // Remove the LAST matching transaction by label (fuzzy)
-          let removed = false;
-          const newTxs = [...txs].reverse().filter(t => {
-            if (!removed && t.label.toLowerCase().includes(label)) { removed = true; return false; }
-            return true;
-          }).reverse();
-          if (removed) {
-            d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: newTxs}}};
-            showToast(`Removed "${action.label}" entry ✓`);
-          }
-
-        } else if (action.type === 'clear_day') {
-          const dateKey = action.date || TODAY;
-          const existing = d.dailyEntries[dateKey]||{transactions:[]};
-          d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: []}}};
-          showToast(`Cleared all transactions for ${dateKey} ✓`);
-
-        // ── BILLS ────────────────────────────────────────────────────────
-        } else if (action.type === 'add_bill') {
-          const bill = {
-            id: Date.now()+Math.random(),
-            name: action.name||'Bill',
-            amount: parseFloat(action.amount)||0,
-            frequency: action.frequency||'monthly',
-            category: action.category||'other',
-            dueDay: parseInt(action.dueDay)||1,
-          };
-          d = {...d, recurringPayments: [...(d.recurringPayments||[]), bill]};
-          showToast(`${bill.name} added to bills ✓`);
-
-        } else if (action.type === 'remove_bill') {
-          const nameQ = (action.name||'').toLowerCase();
-          const before = (d.recurringPayments||[]).length;
-          const filtered = (d.recurringPayments||[]).filter(p => !p.name.toLowerCase().includes(nameQ));
-          if (filtered.length < before) {
-            d = {...d, recurringPayments: filtered};
-            showToast(`${action.name} removed from bills ✓`);
-          }
-
-        } else if (action.type === 'edit_bill') {
-          const nameQ = (action.name||'').toLowerCase();
-          const updated = (d.recurringPayments||[]).map(p => {
-            if (!p.name.toLowerCase().includes(nameQ)) return p;
-            return {
-              ...p,
-              ...(action.amount    !== undefined ? {amount:    parseFloat(action.amount)}    : {}),
-              ...(action.frequency !== undefined ? {frequency: action.frequency}             : {}),
-              ...(action.dueDay    !== undefined ? {dueDay:    parseInt(action.dueDay)}      : {}),
-              ...(action.category  !== undefined ? {category:  action.category}              : {}),
-              ...(action.newName   !== undefined ? {name:      action.newName}               : {}),
-            };
-          });
-          d = {...d, recurringPayments: updated};
-          showToast(`${action.name} updated ✓`);
-
-        // ── HOUSEHOLD ────────────────────────────────────────────────────
-        } else if (action.type === 'set_member_income') {
-          const nameQ = (action.name||'').toLowerCase();
-          const updated = (d.members||[]).map(m =>
-            m.name.toLowerCase().includes(nameQ) ? {...m, monthlyIncome: parseFloat(action.amount)||0} : m
-          );
-          d = {...d, members: updated};
-          showToast(`${action.name}'s income updated ✓`);
-
-        } else if (action.type === 'toggle_household_mode') {
-          d = {...d, householdMode: !!action.enabled};
-          showToast(`Household mode ${action.enabled?'enabled':'disabled'} ✓`);
-
-        // ── NAVIGATION ───────────────────────────────────────────────────
-        } else if (action.type === 'navigate') {
-          if (action.tab) setTab(action.tab);
-        }
-
-      } catch(e) { console.log('Action error:', action.type, e); }
-    }
-
-    applyAll();
+      return d;
+    });
   };
 
   const sendAiMessage = async (messageText, imageData = null) => {
@@ -2892,214 +2877,155 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           {tab==="advisor"&&(
             <C style={{gap:14}}>
 
-              {/* Hero intro — shown only when no messages yet */}
-              {aiMessages.length===0&&(
-                <>
-                  <div className="hero-card" style={{padding:28,textAlign:"center"}}>
-                    <div className="hero-band" style={{background:"#7048e8"}}/>
-                    <div style={{marginTop:8}}>
-                      <div style={{width:60,height:60,borderRadius:20,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
-                        <I n="brain" s={28} c="#7048e8"/>
-                      </div>
-                      <div style={{fontSize:22,fontWeight:800,letterSpacing:"-0.03em",marginBottom:8}}>Your financial advisor</div>
-                      <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.7,maxWidth:320,margin:"0 auto"}}>
-                        Ask anything about your money. Upload a paystub and I'll break down every line. I know your numbers — let's make sense of them.
-                      </div>
-                    </div>
-                  </div>
+              {/* ── Single unified chat card — always visible ── */}
+              <div className="card" style={{padding:0,overflow:"hidden"}}>
 
-                  {/* Snapshot card */}
-                  {data.monthlyIncome>0&&(
-                    <div className="card" style={{padding:20}}>
-                      <div className="sec-hd">Your snapshot</div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                        {[
-                          {label:"Take-home",val:fmtFull(data.monthlyIncome),color:"#2f9e44"},
-                          {label:"Bills",val:fmtFull(totalBills(data.recurringPayments)),color:"#e03131"},
-                          {label:"Daily allowance",val:fmtFull(myAllow),color:"#1a1a2e"},
-                          {label:"Pool left",val:fmtFull(poolLeft),color:poolLeft>=0?"#2f9e44":"#e03131"},
-                        ].map(({label,val,color})=>(
-                          <div key={label} style={{background:"#f8f7f2",borderRadius:14,padding:"12px 14px"}}>
-                            <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>{label}</div>
-                            <div style={{fontSize:18,fontWeight:700,color,letterSpacing:"-0.02em"}}>{val}</div>
-                          </div>
-                        ))}
-                      </div>
+                {/* Header */}
+                <R style={{padding:"16px 20px",borderBottom:"1px solid #f0efe9",justifyContent:"space-between"}}>
+                  <R style={{gap:10}}>
+                    <div style={{width:36,height:36,borderRadius:12,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <I n="brain" s={18} c="#7048e8"/>
                     </div>
-                  )}
-
-                  {/* Upload paystub card */}
-                  <div className="card" style={{padding:22}}>
-                    <R style={{gap:12,marginBottom:14}}>
-                      <div style={{width:40,height:40,borderRadius:13,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        <I n="upload" s={18} c="#7048e8"/>
-                      </div>
-                      <C>
-                        <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Upload a paystub</div>
-                        <div style={{fontSize:12,color:"#9e9b95",lineHeight:1.5}}>PNG, JPG, or PDF — I'll extract every number and explain what it means</div>
-                      </C>
-                    </R>
-                    <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#f3eeff",border:"1.5px dashed #c8b8f8",borderRadius:14,padding:"18px",cursor:"pointer",transition:"all 0.15s"}}>
-                      <I n="file" s={18} c="#7048e8"/>
-                      <span style={{fontSize:14,fontWeight:600,color:"#7048e8"}}>Choose file to analyze</span>
-                      <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
-                    </label>
-                  </div>
-
-                  {/* Suggested prompts */}
-                  <div className="card" style={{padding:20}}>
-                    <div className="sec-hd">Ask me anything</div>
-                    {/* Category tabs */}
-                    <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:14,paddingBottom:2}}>
-                      {suggestions.map(s=>(
-                        <button key={s.cat} onClick={()=>setSuggestionCat(s.cat)}
-                          style={{flexShrink:0,padding:"6px 12px",borderRadius:20,border:"1.5px solid",borderColor:suggestionCat===s.cat?"#1a1a2e":"#ece9e0",background:suggestionCat===s.cat?"#1a1a2e":"#f8f7f2",color:suggestionCat===s.cat?"#fff":"#9e9b95",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                          {s.cat}
-                        </button>
-                      ))}
-                    </div>
-                    <C style={{gap:8}}>
-                      {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).map((s,i)=>(
-                        <button key={i} onClick={()=>sendAiMessage(s)}
-                          style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"12px 16px",textAlign:"left",cursor:"pointer",fontSize:13,color:"#1a1a2e",fontFamily:"inherit",fontWeight:500,transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                          {s}
-                          <I n="arrow" s={14} c="#bbb9b0"/>
-                        </button>
-                      ))}
+                    <C style={{gap:1}}>
+                      <div style={{fontSize:14,fontWeight:700}}>DayFlow Advisor</div>
+                      <div style={{fontSize:11,color:"#2f9e44",fontWeight:600}}>● Online — ask me anything</div>
                     </C>
-                  </div>
-                </>
-              )}
-
-              {/* Chat messages */}
-              {aiMessages.length>0&&(
-                <div className="card" style={{padding:0,overflow:"hidden"}}>
-                  {/* Chat header */}
-                  <R style={{padding:"16px 20px",borderBottom:"1px solid #f0efe9",justifyContent:"space-between"}}>
-                    <R style={{gap:10}}>
-                      <div style={{width:34,height:34,borderRadius:11,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                        <I n="brain" s={16} c="#7048e8"/>
-                      </div>
-                      <C style={{gap:1}}>
-                        <div style={{fontSize:13,fontWeight:700}}>DayFlow Advisor</div>
-                        <div style={{fontSize:11,color:"#2f9e44",fontWeight:600}}>● Online</div>
-                      </C>
-                    </R>
+                  </R>
+                  {aiMessages.length>0&&(
                     <button className="btn-ghost" style={{padding:"6px 12px",fontSize:11}}
                       onClick={()=>{setAiMessages([]);setUploadedFile(null);setUploadPreview(null);}}>
                       New chat
                     </button>
-                  </R>
+                  )}
+                </R>
 
-                  {/* Messages */}
-                  <div style={{padding:"16px 16px 8px",maxHeight:420,overflowY:"auto",display:"flex",flexDirection:"column",gap:12}}>
-                    {aiMessages.map((msg,i)=>{
-                      const isUser = msg.role==="user";
-                      return (
-                        <div key={msg.id||i} style={{display:"flex",flexDirection:"column",alignItems:isUser?"flex-end":"flex-start",gap:4}}>
-                          {/* Sender label */}
-                          <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:isUser?0:4,paddingRight:isUser?4:0}}>
-                            {isUser?"You":"Advisor"}
-                          </div>
-                          {/* Image preview if paystub */}
-                          {msg.image&&(
-                            <div style={{borderRadius:12,overflow:"hidden",maxWidth:220,border:"1px solid #f0efe9"}}>
-                              <img src={`data:image/jpeg;base64,${msg.image}`} style={{width:"100%",display:"block"}} alt="Uploaded document"/>
-                            </div>
-                          )}
-                          {/* Message bubble */}
-                          {(msg.content||msg.isPaystub)&&(
-                            <div style={{
-                              maxWidth:"85%",padding:"12px 16px",borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
-                              background:isUser?"#1a1a2e":"#f8f7f2",
-                              color:isUser?"#fff":"#1a1a2e",
-                              fontSize:13,lineHeight:1.65,fontWeight:400,
-                              border:isUser?"none":"1px solid #ece9e0",
-                            }}>
-                              {msg.isPaystub&&!msg.image
-                                ? "Analyzing your document…"
-                                : <>{renderMd(msg.content)}{msg.streaming&&<span style={{display:"inline-block",width:2,height:14,background:"#7048e8",marginLeft:2,borderRadius:1,animation:"pulse 0.8s ease-in-out infinite",verticalAlign:"middle"}}/>}</>
-                              }
-                              {/* Auto-apply income button */}
-                              {msg.applyIncome&&(
-                                <div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
-                                  <button onClick={()=>{
-                                    const nd={...data,monthlyIncome:msg.applyIncome};
-                                    setData(nd);persist(nd);
-                                    debouncedSave(nd);
-                                    setAiMessages(prev=>[...prev,{role:'assistant',content:'✅ Done! Your monthly income is now set to **$'+msg.applyIncome.toLocaleString()+'/mo**. Your daily budget has been updated automatically.',id:Date.now()}]);
-                                  }} style={{background:"#1a1a2e",color:"#fff",border:"none",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                                    ✓ Yes, update to ${msg.applyIncome.toLocaleString()}/mo
-                                  </button>
-                                  <button onClick={()=>setAiMessages(prev=>prev.filter(m=>m.id!==msg.id))}
-                                    style={{background:"#f8f7f2",color:"#9e9b95",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                                    Keep current
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                {/* Messages area */}
+                <div style={{minHeight:260,maxHeight:440,overflowY:"auto",display:"flex",flexDirection:"column",gap:12,padding:"16px 16px 8px"}}>
 
-                    {/* Typing indicator */}
-                    {aiLoading&&(
-                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
-                        <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:4}}>Advisor</div>
-                        <div style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5,alignItems:"center"}}>
-                          {[0,1,2].map(j=>(
-                            <div key={j} style={{width:7,height:7,borderRadius:"50%",background:"#bbb9b0",animation:"pulse 1.2s ease-in-out infinite",animationDelay:`${j*0.2}s`}}/>
+                  {aiMessages.length===0&&(
+                    <div style={{display:"flex",flexDirection:"column"}}>
+                      {data.monthlyIncome>0&&(
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+                          {[
+                            {label:"Allowance",val:fmtFull(myAllow)+"/day",color:"#1a1a2e"},
+                            {label:"Spent today",val:fmtFull(daySpent),color:daySpent>0?"#e03131":"#bbb9b0"},
+                            {label:"Pool left",val:fmtFull(poolLeft),color:poolLeft>=0?"#2f9e44":"#e03131"},
+                          ].map(({label,val,color})=>(
+                            <div key={label} style={{background:"#f8f7f2",borderRadius:12,padding:"10px 12px",border:"1px solid #ece9e0"}}>
+                              <div style={{fontSize:9,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{label}</div>
+                              <div style={{fontSize:13,fontWeight:700,color}}>{val}</div>
+                            </div>
                           ))}
                         </div>
+                      )}
+                      <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Suggested</div>
+                      <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:10,paddingBottom:2}}>
+                        {suggestions.map(s=>(
+                          <button key={s.cat} onClick={()=>setSuggestionCat(s.cat)}
+                            style={{flexShrink:0,padding:"5px 11px",borderRadius:20,border:"1.5px solid",borderColor:suggestionCat===s.cat?"#7048e8":"#ece9e0",background:suggestionCat===s.cat?"#f3eeff":"#f8f7f2",color:suggestionCat===s.cat?"#7048e8":"#9e9b95",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                            {s.cat}
+                          </button>
+                        ))}
                       </div>
-                    )}
-                    <div ref={chatEndRef}/>
-                  </div>
-
-                  {/* Upload button inside chat */}
-                  <R style={{padding:"0 16px 8px",gap:8}}>
-                    <label style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#7048e8",transition:"all 0.15s",flexShrink:0}}>
-                      <I n="upload" s={14} c="#7048e8"/>
-                      Upload
-                      <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
-                    </label>
-                    <button onClick={()=>{if(!requireAuth("Sign in to scan receipts with your camera")) return; setCameraOpen(true);}}
-                      style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#1a1a2e",flexShrink:0,fontFamily:"inherit"}}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                        <circle cx="12" cy="13" r="4"/>
-                      </svg>
-                      Camera
-                    </button>
-                    <div style={{flex:1,fontSize:11,color:"#bbb9b0",fontStyle:"italic",lineHeight:1.4}}>
-                      {uploadedFile ? `Uploaded: ${uploadedFile}` : "Paystub, receipt, PDF, Excel…"}
+                      <C style={{gap:6}}>
+                        {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).slice(0,4).map((s,i)=>(
+                          <button key={i} onClick={()=>sendAiMessage(s)}
+                            style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:10,padding:"10px 14px",textAlign:"left",cursor:"pointer",fontSize:12,color:"#1a1a2e",fontFamily:"inherit",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                            {s}
+                            <I n="arrow" s={12} c="#bbb9b0"/>
+                          </button>
+                        ))}
+                      </C>
                     </div>
-                  </R>
+                  )}
 
-                  {/* Input */}
-                  <div style={{padding:"8px 16px 16px",borderTop:"1px solid #f0efe9"}}>
-                    <R style={{gap:8}}>
-                      <input className="inp" placeholder="Ask about your finances…" value={aiInput}
-                        onChange={e=>setAiInput(e.target.value)}
-                        onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendAiMessage(aiInput)}
-                        style={{flex:1,fontSize:14}}/>
-                      <button className="btn" onClick={()=>sendAiMessage(aiInput)}
-                        disabled={aiLoading||!aiInput.trim()}
-                        style={{padding:"13px 16px",opacity:aiLoading||!aiInput.trim()?0.4:1,borderRadius:14}}>
-                        <I n="send" s={15} c="#fff"/>
-                      </button>
-                    </R>
-                  </div>
+                  {aiMessages.map((msg,i)=>{
+                    const isUser = msg.role==="user";
+                    return (
+                      <div key={msg.id||i} style={{display:"flex",flexDirection:"column",alignItems:isUser?"flex-end":"flex-start",gap:4}}>
+                        <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:isUser?0:4,paddingRight:isUser?4:0}}>
+                          {isUser?"You":"Advisor"}
+                        </div>
+                        {msg.image&&(
+                          <div style={{borderRadius:12,overflow:"hidden",maxWidth:220,border:"1px solid #f0efe9"}}>
+                            <img src={`data:image/jpeg;base64,${msg.image}`} style={{width:"100%",display:"block"}} alt="Uploaded document"/>
+                          </div>
+                        )}
+                        {(msg.content||msg.isPaystub)&&(
+                          <div style={{
+                            maxWidth:"85%",padding:"12px 16px",borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                            background:isUser?"#1a1a2e":"#f8f7f2",color:isUser?"#fff":"#1a1a2e",
+                            fontSize:13,lineHeight:1.65,border:isUser?"none":"1px solid #ece9e0",
+                          }}>
+                            {msg.isPaystub&&!msg.image ? "Analyzing your document…"
+                              : <>{renderMd(msg.content)}{msg.streaming&&<span style={{display:"inline-block",width:2,height:14,background:"#7048e8",marginLeft:2,borderRadius:1,animation:"pulse 0.8s ease-in-out infinite",verticalAlign:"middle"}}/>}</>}
+                            {msg.applyIncome&&(
+                              <div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
+                                <button onClick={()=>{
+                                  setData(prev=>{ const nd={...prev,monthlyIncome:msg.applyIncome}; persist(nd); debouncedSave(nd); return nd; });
+                                  setAiMessages(prev=>[...prev,{role:'assistant',content:'✅ Done! Income updated to **$'+msg.applyIncome.toLocaleString()+'/mo**.',id:Date.now()}]);
+                                }} style={{background:"#1a1a2e",color:"#fff",border:"none",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                                  ✓ Yes, update to ${msg.applyIncome.toLocaleString()}/mo
+                                </button>
+                                <button onClick={()=>setAiMessages(prev=>prev.filter(m=>m.id!==msg.id))}
+                                  style={{background:"#f8f7f2",color:"#9e9b95",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                                  Keep current
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {aiLoading&&(
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
+                      <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:4}}>Advisor</div>
+                      <div style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5,alignItems:"center"}}>
+                        {[0,1,2].map(j=>(<div key={j} style={{width:7,height:7,borderRadius:"50%",background:"#bbb9b0",animation:"pulse 1.2s ease-in-out infinite",animationDelay:`${j*0.2}s`}}/>))}
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef}/>
                 </div>
-              )}
 
-              {/* Quick prompts shown below chat */}
+                {/* Upload + camera */}
+                <R style={{padding:"0 16px 8px",gap:8,borderTop:"1px solid #f8f7f2"}}>
+                  <label style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#7048e8",flexShrink:0}}>
+                    <I n="upload" s={13} c="#7048e8"/> Upload
+                    <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
+                  </label>
+                  <button onClick={()=>setCameraOpen(true)}
+                    style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#1a1a2e",flexShrink:0,fontFamily:"inherit"}}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    Camera
+                  </button>
+                  {uploadedFile&&<div style={{flex:1,fontSize:11,color:"#bbb9b0",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{uploadedFile}</div>}
+                </R>
+
+                {/* Input — always visible, no gate */}
+                <div style={{padding:"8px 16px 16px",borderTop:"1px solid #f0efe9"}}>
+                  <R style={{gap:8}}>
+                    <input className="inp" placeholder="Ask anything — or say 'I spent $X on Y'…" value={aiInput}
+                      onChange={e=>setAiInput(e.target.value)}
+                      onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendAiMessage(aiInput)}
+                      style={{flex:1,fontSize:14}}/>
+                    <button className="btn" onClick={()=>sendAiMessage(aiInput)}
+                      disabled={aiLoading||!aiInput.trim()}
+                      style={{padding:"13px 16px",opacity:aiLoading||!aiInput.trim()?0.4:1,borderRadius:14}}>
+                      <I n="send" s={15} c="#fff"/>
+                    </button>
+                  </R>
+                </div>
+              </div>
+
+              {/* Quick chips below after first message */}
               {aiMessages.length>0&&!aiLoading&&(
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).slice(0,3).map((s,i)=>(
                     <button key={i} onClick={()=>sendAiMessage(s)}
-                      style={{background:"#fff",border:"1px solid #ece9e0",borderRadius:20,padding:"8px 14px",fontSize:12,color:"#6b6965",fontFamily:"inherit",fontWeight:500,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}}>
+                      style={{background:"#fff",border:"1px solid #ece9e0",borderRadius:20,padding:"8px 14px",fontSize:12,color:"#6b6965",fontFamily:"inherit",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
                       {s.length>32?s.slice(0,32)+"…":s}
                     </button>
                   ))}
@@ -3107,6 +3033,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               )}
 
             </C>
+          )}
           )}
 
           {/* ══════ LEARN ══════ */}
