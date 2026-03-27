@@ -480,108 +480,109 @@ When the topic of investing, brokerage accounts, or stock trading comes up natur
     setAiLoading(false);
   };
 
-  const analyzePaystub = async (base64, mediaType) => {
+  // ── Dynamic XLSX loader ─────────────────────────────────────────────────────
+  const loadXLSX = () => new Promise((resolve) => {
+    if (window.XLSX) { resolve(window.XLSX); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js';
+    s.onload = () => resolve(window.XLSX);
+    document.head.appendChild(s);
+  });
+
+  // ── Analyze any document (images, PDFs, Excel, CSV) ──────────────────────
+  const analyzeDocument = async (contentBlocks, fileName) => {
     setAnalyzing(true);
-    const prompt = `This is my paystub or financial document. Please:
-1. Extract the key numbers: gross pay, net pay, all deductions (taxes, insurance, 401k etc)
-2. Explain what each deduction means in plain English
-3. Calculate what percentage of gross pay I actually take home
-4. Compare my take-home to my logged income of ${fmtFull(data.monthlyIncome)}/mo — do they match?
-5. Give me 2-3 specific, actionable insights about what I'm seeing
-Format your response clearly with sections. Be specific with dollar amounts.`;
-    const userMsg = { role: "user", content: prompt, image: base64, id: Date.now(), isPaystub: true };
+    const prompt = `Analyze this financial document carefully. Please:
+1. Extract ALL key numbers: gross pay, net pay, all deductions (taxes, 401k, insurance, etc.)
+2. Explain each deduction in plain English — as if explaining to someone who has never read a paystub
+3. Calculate take-home percentage of gross pay
+4. Compare take-home to logged income of ${data.monthlyIncome > 0 ? '$'+data.monthlyIncome.toFixed(2)+'/mo' : 'not yet set'} — do they match?
+5. Give 2-3 specific, actionable insights
+
+Format your response with clear sections. Be specific with dollar amounts.`;
+
+    const isImage = contentBlocks[0]?.type === 'image';
+    const userMsg = {
+      role: 'user',
+      content: `Analyzing ${fileName}…`,
+      image: isImage ? contentBlocks[0].source.data : null,
+      id: Date.now(),
+      isPaystub: true,
+      fileName,
+    };
     setAiMessages(prev => [...prev, userMsg]);
     setAiLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "x-api-key": import.meta.env.VITE_ANTHROPIC_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
+          'Content-Type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'pdfs-2024-09-25',
+          'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
           system: buildFinancialContext(),
-          messages: [{
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-              { type: "text", text: prompt }
-            ]
-          }]
+          messages: [{ role: 'user', content: [...contentBlocks, { type: 'text', text: prompt }] }],
         }),
       });
       const result = await res.json();
       const reply = result.content?.[0]?.text || "Couldn't analyze the document.";
-      setAiMessages(prev => [...prev, { role: "assistant", content: reply, id: Date.now() }]);
-    } catch {
-      setAiMessages(prev => [...prev, { role: "assistant", content: "Couldn't analyze the file. Try a clearer image.", id: Date.now() }]);
+      setAiMessages(prev => [...prev, { role: 'assistant', content: reply, id: Date.now() }]);
+    } catch(e) {
+      setAiMessages(prev => [...prev, { role: 'assistant', content: "Couldn't analyze the file. Please try again with a clearer image or different file.", id: Date.now() }]);
     }
     setAiLoading(false);
     setAnalyzing(false);
   };
 
-  // ── Feedback ─────────────────────────────────────────────────────────────
-  const submitFeedback = async () => {
-    if (!feedbackText.trim() || feedbackRating === 0) return;
-    setFeedbackBusy(true);
-    try {
-      await supabase.from('feedback').insert({
-        user_id: user?.id || null,
-        rating: feedbackRating,
-        category: feedbackCat,
-        text: feedbackText.trim(),
-        app_version: '1.0',
-        user_plan: data.plan || 'free',
-        has_bills: data.recurringPayments.length > 0,
-        has_household: (data.members||[]).length > 0,
-        monthly_income: data.monthlyIncome > 0,
-        created_at: new Date().toISOString(),
-      });
-      setFeedbackStep('thanks');
-    } catch(e) {
-      alert('Could not submit — please try again.');
-    }
-    setFeedbackBusy(false);
-  };
-
-  // ── Stripe Upgrade ──────────────────────────────────────────────────────────
-  const PRICES = {
-    pro:      { monthly: "price_1TDvC2EHLJtYfhmkOqOXTxMe", annual: "price_1TDvFnEHLJtYfhmkUAJLYCpG" },
-    business: { monthly: "price_1TDvFOEHLJtYfhmkGmcEEyv9", annual: "price_1TDvFOEHLJtYfhmkZQ3HhjTy" },
-  };
-  const handleUpgrade = async (planKey) => {
-    if (!user) return;
-    setUpgradeLoading(true);
-    try {
-      const priceId = PRICES[planKey][upgradeBilling];
-      const { data, error } = await supabase.functions.invoke("stripe-checkout", {
-        body: { priceId, userId: user.id, email: user.email },
-      });
-      if (error) throw error;
-      if (data?.url) window.location.href = data.url;
-    } catch(e) {
-      alert("Could not start checkout. Please try again.");
-    } finally {
-      setUpgradeLoading(false);
-    }
-  };
-
-  const handleFileUpload = (e) => {
+  // ── Handle file upload — images, PDFs, Excel, CSV ────────────────────────
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploadedFile(file.name);
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    // Excel / CSV → parse with SheetJS, send as text
+    if (['xlsx','xls','csv'].includes(ext)) {
+      try {
+        const XLSX = await loadXLSX();
+        const arrayBuffer = await file.arrayBuffer();
+        const wb = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheets = wb.SheetNames.map(name => {
+          const ws = wb.Sheets[name];
+          return `Sheet: ${name}
+${XLSX.utils.sheet_to_csv(ws, { blankrows: false })}`;
+        }).join('
+
+');
+        await analyzeDocument([{ type: 'text', text: `File: ${file.name}
+
+${sheets.slice(0, 8000)}` }], file.name);
+      } catch(err) {
+        setAiMessages(prev => [...prev, { role: 'assistant', content: `Couldn't parse ${file.name}. Make sure it's a valid Excel or CSV file.`, id: Date.now() }]);
+      }
+      return;
+    }
+
+    // Images + PDFs → base64
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target.result;
-      const base64 = result.split(",")[1];
-      const mediaType = file.type || "image/jpeg";
-      setUploadedFile(file.name);
-      setUploadPreview(result);
-      analyzePaystub(base64, mediaType);
+    reader.onload = async (ev) => {
+      const base64 = ev.target.result.split(',')[1];
+      const mediaType = file.type || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
+      setUploadPreview(ev.target.result);
+      const isPdf = mediaType === 'application/pdf';
+      const fileBlock = isPdf
+        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+        : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } };
+      await analyzeDocument([fileBlock], file.name);
     };
+    reader.readAsDataURL(file);
+  };
+
     reader.readAsDataURL(file);
   };
 
@@ -2320,7 +2321,7 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
                     <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#f3eeff",border:"1.5px dashed #c8b8f8",borderRadius:14,padding:"18px",cursor:"pointer",transition:"all 0.15s"}}>
                       <I n="file" s={18} c="#7048e8"/>
                       <span style={{fontSize:14,fontWeight:600,color:"#7048e8"}}>Choose file to analyze</span>
-                      <input type="file" accept="image/*,.pdf" onChange={handleFileUpload} style={{display:"none"}}/>
+                      <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
                     </label>
                   </div>
 
@@ -2423,7 +2424,7 @@ Format your response clearly with sections. Be specific with dollar amounts.`;
                     <label style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#7048e8",transition:"all 0.15s",flexShrink:0}}>
                       <I n="upload" s={14} c="#7048e8"/>
                       Upload
-                      <input type="file" accept="image/*,.pdf" onChange={handleFileUpload} style={{display:"none"}}/>
+                      <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
                     </label>
                     <div style={{flex:1,fontSize:11,color:"#bbb9b0",fontStyle:"italic",lineHeight:1.4}}>
                       {uploadedFile ? `Uploaded: ${uploadedFile}` : "Add a paystub or document"}
