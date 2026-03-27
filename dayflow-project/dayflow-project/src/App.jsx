@@ -480,6 +480,25 @@ When the topic of investing, brokerage accounts, or stock trading comes up natur
     setAiLoading(false);
   };
 
+  // ── Stripe Upgrade ───────────────────────────────────────────────────────
+  const PRICES = {
+    pro:      { monthly:"price_1TDvC2EHLJtYfhmkOqOXTxMe", annual:"price_1TDvFnEHLJtYfhmkUAJLYCpG" },
+    business: { monthly:"price_1TDvFOEHLJtYfhmkGmcEEyv9", annual:"price_1TDvFOEHLJtYfhmkZQ3HhjTy" },
+  };
+  const handleUpgrade = async (planKey) => {
+    if (!user) return;
+    setUpgradeLoading(true);
+    try {
+      const priceId = PRICES[planKey][upgradeBilling];
+      const { data: d, error } = await supabase.functions.invoke("stripe-checkout", {
+        body: { priceId, userId: user.id, email: user.email },
+      });
+      if (error) throw error;
+      if (d?.url) window.location.href = d.url;
+    } catch(e) { alert("Could not start checkout. Please try again."); }
+    finally { setUpgradeLoading(false); }
+  };
+
   // ── Dynamic XLSX loader ─────────────────────────────────────────────────────
   const loadXLSX = () => new Promise((resolve) => {
     if (window.XLSX) { resolve(window.XLSX); return; }
@@ -552,16 +571,13 @@ Format your response with clear sections. Be specific with dollar amounts.`;
         const XLSX = await loadXLSX();
         const arrayBuffer = await file.arrayBuffer();
         const wb = XLSX.read(arrayBuffer, { type: 'array' });
-        const sheets = wb.SheetNames.map(name => {
-          const ws = wb.Sheets[name];
-          return `Sheet: ${name}
-${XLSX.utils.sheet_to_csv(ws, { blankrows: false })}`;
-        }).join('
-
-');
-        await analyzeDocument([{ type: 'text', text: `File: ${file.name}
-
-${sheets.slice(0, 8000)}` }], file.name);
+        const sheetParts = wb.SheetNames.map(function(sName) {
+          const ws = wb.Sheets[sName];
+          const csv = XLSX.utils.sheet_to_csv(ws, { blankrows: false });
+          return 'Sheet: ' + sName + '\n' + csv;
+        });
+        const combined = 'File: ' + file.name + '\n\n' + sheetParts.join('\n\n').slice(0, 8000);
+        await analyzeDocument([{ type: 'text', text: combined }], file.name);
       } catch(err) {
         setAiMessages(prev => [...prev, { role: 'assistant', content: `Couldn't parse ${file.name}. Make sure it's a valid Excel or CSV file.`, id: Date.now() }]);
       }
