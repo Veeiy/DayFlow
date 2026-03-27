@@ -55,26 +55,76 @@ const fmtDate = (k) => new Date(k+"T12:00:00").toLocaleDateString("en-US",{weekd
 // ─── Markdown renderer ───────────────────────────────────────────────────────
 const renderMd = (text) => {
   if (!text) return null;
-  return text.split("\n").map((line, i, arr) => {
-    const parts = []; let remaining = line; let key = 0;
-    while (remaining.length > 0) {
-      const bold = remaining.match(/\*\*(.+?)\*\*/);
-      const link = remaining.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/);
-      const first = [bold, link].filter(Boolean).sort((a,b)=>a.index-b.index)[0];
-      if (first === bold) {
-        if (bold.index > 0) parts.push(<span key={key++}>{remaining.slice(0, bold.index)}</span>);
-        parts.push(<strong key={key++} style={{fontWeight:700}}>{bold[1]}</strong>);
-        remaining = remaining.slice(bold.index + bold[0].length);
-      } else if (first === link) {
-        if (link.index > 0) parts.push(<span key={key++}>{remaining.slice(0, link.index)}</span>);
-        parts.push(<a key={key++} href={link[2]} target="_blank" rel="noopener noreferrer" style={{color:"#7048e8",fontWeight:600,textDecoration:"underline"}}>{link[1]}</a>);
-        remaining = remaining.slice(link.index + link[0].length);
-      } else {
-        parts.push(<span key={key++}>{remaining}</span>); break;
-      }
+  const lines = text.split("\n");
+  const elements = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // H2 heading
+    if (line.startsWith("## ")) {
+      elements.push(<div key={i} style={{fontSize:15,fontWeight:800,color:"#1a1a2e",marginTop:14,marginBottom:4}}>{renderInline(line.slice(3))}</div>);
+    // H3 heading
+    } else if (line.startsWith("### ")) {
+      elements.push(<div key={i} style={{fontSize:13,fontWeight:700,color:"#1a1a2e",marginTop:10,marginBottom:2}}>{renderInline(line.slice(4))}</div>);
+    // H1 heading
+    } else if (line.startsWith("# ")) {
+      elements.push(<div key={i} style={{fontSize:17,fontWeight:800,color:"#1a1a2e",marginTop:16,marginBottom:6}}>{renderInline(line.slice(2))}</div>);
+    // Horizontal rule
+    } else if (line.trim() === "---" || line.trim() === "***") {
+      elements.push(<div key={i} style={{height:1,background:"#ece9e0",margin:"10px 0"}}/>);
+    // Bullet point
+    } else if (line.startsWith("- ") || line.startsWith("* ")) {
+      elements.push(
+        <div key={i} style={{display:"flex",gap:8,marginTop:3,alignItems:"flex-start"}}>
+          <span style={{color:"#7048e8",fontWeight:700,flexShrink:0,marginTop:1}}>·</span>
+          <span>{renderInline(line.slice(2))}</span>
+        </div>
+      );
+    // Numbered list
+    } else if (/^\d+\.\s/.test(line)) {
+      const num = line.match(/^(\d+)\.\s/)[1];
+      elements.push(
+        <div key={i} style={{display:"flex",gap:8,marginTop:3,alignItems:"flex-start"}}>
+          <span style={{color:"#7048e8",fontWeight:700,flexShrink:0,minWidth:16,marginTop:1}}>{num}.</span>
+          <span>{renderInline(line.slice(num.length+2))}</span>
+        </div>
+      );
+    // Empty line = small spacer
+    } else if (line.trim() === "") {
+      elements.push(<div key={i} style={{height:6}}/>);
+    // Normal paragraph line
+    } else {
+      elements.push(<div key={i} style={{marginTop:2}}>{renderInline(line)}</div>);
     }
-    return <span key={i}>{parts}{i < arr.length - 1 && <br/>}</span>;
-  });
+    i++;
+  }
+  return <>{elements}</>;
+};
+
+// Inline markdown: bold, italic, links
+const renderInline = (text) => {
+  if (!text) return null;
+  const parts = []; let remaining = text; let key = 0;
+  while (remaining.length > 0) {
+    const bold = remaining.match(/\*\*(.+?)\*\*/);
+    const italic = remaining.match(/\*([^*]+)\*/);
+    const link = remaining.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/);
+    const matches = [bold, italic, link].filter(Boolean);
+    if (matches.length === 0) { parts.push(<span key={key++}>{remaining}</span>); break; }
+    const first = matches.sort((a,b) => a.index - b.index)[0];
+    if (first.index > 0) parts.push(<span key={key++}>{remaining.slice(0, first.index)}</span>);
+    if (first === bold) {
+      parts.push(<strong key={key++} style={{fontWeight:700}}>{bold[1]}</strong>);
+      remaining = remaining.slice(first.index + bold[0].length);
+    } else if (first === italic) {
+      parts.push(<em key={key++}>{italic[1]}</em>);
+      remaining = remaining.slice(first.index + italic[0].length);
+    } else if (first === link) {
+      parts.push(<a key={key++} href={link[2]} target="_blank" rel="noopener noreferrer" style={{color:"#7048e8",fontWeight:600,textDecoration:"underline"}}>{link[1]}</a>);
+      remaining = remaining.slice(first.index + link[0].length);
+    }
+  }
+  return <>{parts}</>;
 };
 
 // ─── Learn Section Component ─────────────────────────────────────────────────
@@ -235,6 +285,8 @@ export default function App() {
   const [authError,setAuthError]     = useState("");
   const [authBusy,setAuthBusy]       = useState(false);
   const [syncBusy,setSyncBusy]       = useState(false);
+  const [toast,setToast]             = useState(null);
+  const showToast = (msg, type='success') => { setToast({msg,type}); setTimeout(()=>setToast(null),2800); };
 
   // ── Auth listener ───────────────────────────────────────────────────────────
  useEffect(()=>{
@@ -437,45 +489,109 @@ The user's financial snapshot:
 
 Your role: help the user understand their finances, identify patterns, give actionable advice, and make them feel financially literate — not judged. Be warm, specific, and concrete. Use their actual numbers. Keep responses concise but genuinely useful. Never be preachy.
 
-When the topic of investing, brokerage accounts, or stock trading comes up naturally, you can mention that a great way to get started is with Robinhood — new users can get between $5 and $200 in free stock just for signing up. Include this as a markdown link exactly like this: [Get free stock on Robinhood](https://join.robinhood.com/brado84) — only mention it once per conversation and only when it's genuinely relevant (investing, starting to invest, brokerage accounts, free ways to build wealth). Never force it into unrelated topics.`;
+When the topic of investing, brokerage accounts, or stock trading comes up naturally, you can mention that a great way to get started is with Robinhood — new users can get between $5 and $200 in free stock just for signing up. Include this as a markdown link exactly like this: [Get free stock on Robinhood](https://join.robinhood.com/brado84) — only mention it once per conversation and only when it's genuinely relevant (investing, starting to invest, brokerage accounts, free ways to build wealth). Never force it into unrelated topics.
+
+LIVE ACTIONS: You can update the user's DayFlow data in real time. When the user mentions spending money, earning money, adding a bill, or updating income — include a JSON action tag at the END of your response (after your message). Use ONLY when clearly appropriate. Format exactly:
+<dayflow_action>{"type":"log_expense","label":"Coffee","amount":4.50}</dayflow_action>
+<dayflow_action>{"type":"log_income","label":"Freelance payment","amount":500}</dayflow_action>
+<dayflow_action>{"type":"set_income","amount":5000}</dayflow_action>
+<dayflow_action>{"type":"add_bill","name":"Netflix","amount":15.99,"frequency":"monthly"}</dayflow_action>
+Only include ONE action per response. Only act when the user clearly states something happened (not hypotheticals). Always confirm what you did in your message text.`;
+
+  // ── Execute live actions from AI ─────────────────────────────────────────
+  const executeDayflowAction = (actionStr) => {
+    try {
+      const action = JSON.parse(actionStr);
+      if (action.type === 'log_expense') {
+        const tx = {id:Date.now(), label:action.label||'Expense', amount:parseFloat(action.amount)||0, type:'expense'};
+        const todayEntry = data.dailyEntries[TODAY]||{transactions:[]};
+        upd({dailyEntries:{...data.dailyEntries,[TODAY]:{...todayEntry,transactions:[...(todayEntry.transactions||[]),tx]}}});
+        showToast('−'+fmtFull(tx.amount)+' logged ✓');
+      } else if (action.type === 'log_income') {
+        const tx = {id:Date.now(), label:action.label||'Income', amount:parseFloat(action.amount)||0, type:'income'};
+        const todayEntry = data.dailyEntries[TODAY]||{transactions:[]};
+        upd({dailyEntries:{...data.dailyEntries,[TODAY]:{...todayEntry,transactions:[...(todayEntry.transactions||[]),tx]}}});
+        showToast('+'+fmtFull(tx.amount)+' logged ✓');
+      } else if (action.type === 'set_income') {
+        const amt = parseFloat(action.amount)||0;
+        if (amt > 0) { upd({monthlyIncome:amt}); showToast('Income updated to '+fmt(amt)+' ✓'); }
+      } else if (action.type === 'add_bill') {
+        const bill = {id:Date.now(), name:action.name||'Bill', amount:parseFloat(action.amount)||0, frequency:action.frequency||'monthly', category:'other', dueDay:1};
+        upd({recurringPayments:[...data.recurringPayments, bill]});
+        showToast(bill.name+' added to bills ✓');
+      }
+    } catch(e) { console.log('Action parse error:', e); }
+  };
 
   const sendAiMessage = async (messageText, imageData = null) => {
     if (!messageText.trim() && !imageData) return;
-    const userMsg = { role: "user", content: messageText, image: imageData, id: Date.now() };
+    const userMsg = { role: 'user', content: messageText, image: imageData, id: Date.now() };
     const updatedMessages = [...aiMessages, userMsg];
     setAiMessages(updatedMessages);
-    setAiInput("");
+    setAiInput('');
     setAiLoading(true);
+    const msgId = Date.now() + 1;
+    // Add empty streaming message immediately
+    setAiMessages(prev => [...prev, { role: 'assistant', content: '', id: msgId, streaming: true }]);
     try {
       const apiMessages = updatedMessages.map(m => {
         if (m.image) {
           return { role: m.role, content: [
-            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: m.image } },
-            { type: "text", text: m.content || "Please analyze this document." }
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: m.image } },
+            { type: 'text', text: m.content || 'Please analyze this document.' }
           ]};
         }
-        return { role: m.role, content: m.content };
+        return { role: m.role, content: m.content || '' };
       });
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "x-api-key": import.meta.env.VITE_ANTHROPIC_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
+          'Content-Type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          stream: true,
           system: buildFinancialContext(),
           messages: apiMessages,
         }),
       });
-      const result = await res.json();
-      const reply = result.content?.[0]?.text || "Sorry, I couldn't process that.";
-      setAiMessages(prev => [...prev, { role: "assistant", content: reply, id: Date.now() }]);
-    } catch {
-      setAiMessages(prev => [...prev, { role: "assistant", content: "Something went wrong. Please try again.", id: Date.now() }]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data_str = line.slice(6).trim();
+          if (data_str === '[DONE]') continue;
+          try {
+            const json = JSON.parse(data_str);
+            if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta') {
+              fullText += json.delta.text;
+              setAiMessages(prev => prev.map(m => m.id === msgId ? {...m, content: fullText} : m));
+            }
+          } catch(e) {}
+        }
+      }
+      // Parse and execute any live actions
+      const actionMatch = fullText.match(/<dayflow_action>([\s\S]*?)<\/dayflow_action>/);
+      if (actionMatch) {
+        executeDayflowAction(actionMatch[1]);
+        fullText = fullText.replace(/<dayflow_action>[\s\S]*?<\/dayflow_action>/g, '').trim();
+      }
+      // Finalize message
+      setAiMessages(prev => prev.map(m => m.id === msgId ? {...m, content: fullText, streaming: false} : m));
+    } catch(e) {
+      setAiMessages(prev => prev.map(m => m.id === msgId ? {...m, content: 'Something went wrong. Please try again.', streaming: false} : m));
     }
     setAiLoading(false);
   };
@@ -518,12 +634,19 @@ When the topic of investing, brokerage accounts, or stock trading comes up natur
 4. Compare take-home to logged income of ${data.monthlyIncome > 0 ? '$'+data.monthlyIncome.toFixed(2)+'/mo' : 'not yet set'} — do they match?
 5. Give 2-3 specific, actionable insights
 
-Format your response with clear sections. Be specific with dollar amounts.`;
+Use markdown formatting: ## for section headers, ### for subsections, - for bullet points, **bold** for key numbers.
+
+At the very END of your response, append this JSON block (no markdown around it, real numbers only):
+<income_data>
+{"net_pay":0,"pay_period":"biweekly","monthly_equivalent":0}
+</income_data>
+
+For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, monthly × 1. Round to nearest dollar.`;
 
     const isImage = contentBlocks[0]?.type === 'image';
     const userMsg = {
       role: 'user',
-      content: `Analyzing ${fileName}…`,
+      content: 'Analyzing ' + fileName + '…',
       image: isImage ? contentBlocks[0].source.data : null,
       id: Date.now(),
       isPaystub: true,
@@ -549,8 +672,46 @@ Format your response with clear sections. Be specific with dollar amounts.`;
         }),
       });
       const result = await res.json();
-      const reply = result.content?.[0]?.text || "Couldn't analyze the document.";
-      setAiMessages(prev => [...prev, { role: 'assistant', content: reply, id: Date.now() }]);
+      const fullText = result.content?.[0]?.text || "Couldn't analyze the document.";
+
+      // Extract income data JSON
+      const incomeMatch = fullText.match(/<income_data>([\s\S]*?)<\/income_data>/);
+      let incomeData = null;
+      try { if (incomeMatch) incomeData = JSON.parse(incomeMatch[1].trim()); } catch(e) {}
+      const displayText = fullText.replace(/<income_data>[\s\S]*?<\/income_data>/g, '').trim();
+
+      setAiMessages(prev => [...prev, {
+        role: 'assistant',
+        content: displayText,
+        id: Date.now(),
+        incomeData,
+      }]);
+
+      // Auto-apply if income detected and different from current
+      if (incomeData?.monthly_equivalent > 0) {
+        const detected = incomeData.monthly_equivalent;
+        const current = data.monthlyIncome;
+        if (Math.abs(detected - current) > 50) {
+          // Show apply prompt after a short delay
+          setTimeout(() => {
+            setAiMessages(prev => [...prev, {
+              role: 'assistant',
+              content: '**Your income has been detected from this document.**\n\nShould I update your DayFlow budget to reflect your actual take-home of **$' + detected.toLocaleString() + '/month**?' + (current > 0 ? ' (currently set to $' + current.toLocaleString() + '/mo)' : ''),
+              id: Date.now() + 1,
+              applyIncome: detected,
+            }]);
+          }, 400);
+        } else if (incomeData?.monthly_equivalent > 0) {
+          // Income matches, just confirm
+          setTimeout(() => {
+            setAiMessages(prev => [...prev, {
+              role: 'assistant',
+              content: '✅ Your logged income of **$' + current.toLocaleString() + '/mo** matches this paystub. Your DayFlow budget is accurate.',
+              id: Date.now() + 1,
+            }]);
+          }, 400);
+        }
+      }
     } catch(e) {
       setAiMessages(prev => [...prev, { role: 'assistant', content: "Couldn't analyze the file. Please try again with a clearer image or different file.", id: Date.now() }]);
     }
@@ -2409,8 +2570,25 @@ Format your response with clear sections. Be specific with dollar amounts.`;
                             }}>
                               {msg.isPaystub&&!msg.image
                                 ? "Analyzing your document…"
-                                : renderMd(msg.content)
+                                : <>{renderMd(msg.content)}{msg.streaming&&<span style={{display:"inline-block",width:2,height:14,background:"#7048e8",marginLeft:2,borderRadius:1,animation:"pulse 0.8s ease-in-out infinite",verticalAlign:"middle"}}/>}</>
                               }
+                              {/* Auto-apply income button */}
+                              {msg.applyIncome&&(
+                                <div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
+                                  <button onClick={()=>{
+                                    const nd={...data,monthlyIncome:msg.applyIncome};
+                                    setData(nd);persist(nd);
+                                    if(user)saveToSupabase(nd,user.id);
+                                    setAiMessages(prev=>[...prev,{role:'assistant',content:'✅ Done! Your monthly income is now set to **$'+msg.applyIncome.toLocaleString()+'/mo**. Your daily budget has been updated automatically.',id:Date.now()}]);
+                                  }} style={{background:"#1a1a2e",color:"#fff",border:"none",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                                    ✓ Yes, update to ${msg.applyIncome.toLocaleString()}/mo
+                                  </button>
+                                  <button onClick={()=>setAiMessages(prev=>prev.filter(m=>m.id!==msg.id))}
+                                    style={{background:"#f8f7f2",color:"#9e9b95",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                                    Keep current
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2667,6 +2845,13 @@ Format your response with clear sections. Be specific with dollar amounts.`;
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── Toast ───────────────────────────────────────────────────── */}
+        {toast&&(
+          <div style={{position:"fixed",bottom:100,left:"50%",transform:"translateX(-50%)",background:"#1a1a2e",color:"#fff",borderRadius:20,padding:"10px 20px",fontSize:13,fontWeight:700,zIndex:9997,animation:"fadeIn 0.2s ease",boxShadow:"0 4px 20px rgba(0,0,0,0.2)",whiteSpace:"nowrap",pointerEvents:"none"}}>
+            ✓ {toast.msg}
           </div>
         )}
 
