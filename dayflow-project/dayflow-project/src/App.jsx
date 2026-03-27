@@ -2804,4 +2804,3 @@ Format your response with clear sections. Be specific with dollar amounts.`;
       </div>
     </div>
   );
-}
