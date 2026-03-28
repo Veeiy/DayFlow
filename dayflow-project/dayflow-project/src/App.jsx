@@ -306,7 +306,7 @@ export default function App() {
   };
 
   // ── Splash screen timer ──────────────────────────────────────────────────
-  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2400); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 5000); return () => clearTimeout(t); }, []);
 
   // ── Guest demo data ──────────────────────────────────────────────────────
   const GUEST_DATA = {
@@ -407,7 +407,7 @@ export default function App() {
   const saveToSupabase = async (newData, userId) => {
     if (!userId) return;
     try {
-      // 1. Settings (income, plan, monthly income history)
+      // 1. Settings
       await supabase.from("user_settings").upsert({
         user_id: userId,
         monthly_income: newData.monthlyIncome,
@@ -417,7 +417,7 @@ export default function App() {
         updated_at: new Date().toISOString(),
       });
 
-      // 2. ALL daily entries (not just today — past entries matter too)
+      // 2. Daily entries — upsert on (user_id, date) unique constraint
       const entries = Object.entries(newData.dailyEntries || {});
       if (entries.length > 0) {
         await supabase.from("daily_entries").upsert(
@@ -425,24 +425,17 @@ export default function App() {
             user_id: userId,
             date,
             transactions: entry.transactions || [],
-          }))
+          })),
+          { onConflict: "user_id,date" }
         );
       }
 
-      // 3. Recurring payments — full replace (delete removed ones, upsert current)
-      const existing = await supabase.from("recurring_payments").select("id").eq("user_id", userId);
-      const existingIds = new Set((existing.data||[]).map(r=>r.id));
-      const currentIds  = new Set((newData.recurringPayments||[]).map(r=>r.id));
-      // Delete bills that were removed
-      const toDelete = [...existingIds].filter(id => !currentIds.has(id));
-      if (toDelete.length > 0) {
-        await supabase.from("recurring_payments").delete().in("id", toDelete);
-      }
-      // Upsert current bills
+      // 3. Recurring payments — full delete + reinsert so IDs never matter
+      // (IDs are local-only for React keying; Supabase generates its own UUIDs)
+      await supabase.from("recurring_payments").delete().eq("user_id", userId);
       if ((newData.recurringPayments||[]).length > 0) {
-        await supabase.from("recurring_payments").upsert(
+        await supabase.from("recurring_payments").insert(
           (newData.recurringPayments||[]).map(p => ({
-            id: p.id,
             user_id: userId,
             name: p.name,
             amount: p.amount,
@@ -453,18 +446,11 @@ export default function App() {
         );
       }
 
-      // 4. Household members
-      const existingMembers = await supabase.from("household_members").select("id").eq("user_id", userId);
-      const existingMemberIds = new Set((existingMembers.data||[]).map(m=>m.id));
-      const currentMemberIds  = new Set((newData.members||[]).map(m=>m.id));
-      const membersToDelete   = [...existingMemberIds].filter(id => !currentMemberIds.has(id));
-      if (membersToDelete.length > 0) {
-        await supabase.from("household_members").delete().in("id", membersToDelete);
-      }
+      // 4. Household members — same approach
+      await supabase.from("household_members").delete().eq("user_id", userId);
       if ((newData.members||[]).length > 0) {
-        await supabase.from("household_members").upsert(
+        await supabase.from("household_members").insert(
           (newData.members||[]).map(m => ({
-            id: m.id,
             user_id: userId,
             name: m.name,
             color: m.color,
@@ -1178,67 +1164,94 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
-        @keyframes splashExpand {
-          0%   { transform: scale(0.18); opacity: 0; }
-          30%  { opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
+        @keyframes splashFadeIn {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
         }
-        @keyframes splashWordmark {
-          0%   { opacity: 0; transform: translateY(10px); }
-          100% { opacity: 1; transform: translateY(0); }
+        /* Logo container drifts slightly upward as it settles */
+        @keyframes splashScaleIn {
+          0%   { transform: scale(0.62) translateY(16px); opacity: 0; }
+          55%  { transform: scale(1.03) translateY(-3px); opacity: 1; }
+          100% { transform: scale(1)    translateY(0);    opacity: 1; }
         }
-        @keyframes splashTagline {
-          0%   { opacity: 0; transform: translateY(6px); }
-          100% { opacity: 1; transform: translateY(0); }
+        /* Wave draws over ~2.8s — leisurely, deliberate */
+        @keyframes waveDrawSlow {
+          0%   { stroke-dashoffset: 300; opacity: 0; }
+          6%   { opacity: 1; }
+          100% { stroke-dashoffset: 0; opacity: 1; }
         }
-        @keyframes dotBounce {
-          0%, 100% { cy: 40; }
-          50%       { cy: 20; }
+        /* Ghost trail draws a beat behind */
+        @keyframes ghostDrawSlow {
+          0%   { stroke-dashoffset: 340; opacity: 0; }
+          10%  { opacity: 1; }
+          100% { stroke-dashoffset: 0; opacity: 1; }
         }
-        @keyframes waveDraw {
-          0%   { stroke-dashoffset: 200; }
-          100% { stroke-dashoffset: 0; }
+        /* Whole screen fades out gracefully at the end */
+        @keyframes splashExit {
+          0%   { opacity: 1; }
+          100% { opacity: 0; }
         }
-        @keyframes dotTravel {
-          0%   { offset-distance: 0%; }
-          100% { offset-distance: 100%; }
+        @keyframes ballAppear {
+          0%   { opacity: 0; transform: scale(0); }
+          60%  { opacity: 1; transform: scale(1.3); }
+          100% { opacity: 1; transform: scale(1); }
         }
-        @keyframes pulseGlow {
-          0%, 100% { r: 6; opacity: 1; }
-          50%       { r: 9; opacity: 0.7; }
+        @keyframes ballPulse {
+          0%, 100% { transform: scale(1);    opacity: 1;    box-shadow: 0 0 0 0 rgba(47,158,68,0); }
+          50%       { transform: scale(1.28); opacity: 0.85; box-shadow: 0 0 0 8px rgba(47,158,68,0); }
+        }
+        @keyframes wordmarkIn {
+          0%   { opacity: 0; transform: translateY(20px); filter: blur(4px); }
+          100% { opacity: 1; transform: translateY(0);    filter: blur(0); }
+        }
+        @keyframes underlineGrow {
+          0%   { transform: scaleX(0); opacity: 0; }
+          60%  { opacity: 1; }
+          100% { transform: scaleX(1); opacity: 1; }
+        }
+        @keyframes taglineIn {
+          0%   { opacity: 0; transform: translateY(12px); letter-spacing: -0.02em; }
+          100% { opacity: 1; transform: translateY(0);    letter-spacing:  0.04em; }
+        }
+        .splash-ball-el {
+          animation: ballAppear 1.1s cubic-bezier(0.34,1.4,0.64,1) 2.6s both,
+                     ballPulse 2.4s ease-in-out 3.7s infinite;
+        }
+        .splash-exit {
+          animation: splashExit 0.6s ease 4.4s both;
         }
       `}</style>
 
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:28}}>
+      <div className="splash-exit" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:40,animation:"splashFadeIn 0.8s ease both"}}>
 
-        {/* Animated wave logo — expands from centre */}
-        <div style={{animation:"splashExpand 0.9s cubic-bezier(0.34,1.3,0.64,1) both"}}>
-          <svg width="120" height="72" viewBox="0 0 120 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Ghost trail */}
-            <path d="M5 36 Q20 10 35 36 Q50 62 65 36 Q80 10 95 36 Q110 62 115 36"
-              stroke="#d4d0c8" strokeWidth="2.5" strokeLinecap="round" fill="none"
-              strokeDasharray="220" strokeDashoffset="0"
-              style={{animation:"waveDraw 1s ease 0.3s both"}}/>
+        {/* Wave — scales up then draws */}
+        <div style={{animation:"splashScaleIn 1.8s cubic-bezier(0.34,1.05,0.64,1) 0.1s both"}}>
+          <svg width="220" height="100" viewBox="0 0 220 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Ghost future path */}
+            <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50 Q192 88 215 50"
+              stroke="#d4d0c8" strokeWidth="2" strokeLinecap="round" fill="none"
+              strokeDasharray="360" strokeDashoffset="360"
+              style={{animation:"ghostDrawSlow 3.2s cubic-bezier(0.4,0,0.2,1) 0.4s forwards"}}/>
             {/* Solid active portion */}
-            <path d="M5 36 Q20 10 35 36 Q50 62 65 36 Q80 10 95 36"
+            <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"
               stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round" fill="none"
-              strokeDasharray="170" strokeDashoffset="170"
-              style={{animation:"waveDraw 0.9s cubic-bezier(0.4,0,0.2,1) 0.15s forwards"}}/>
-            {/* Green ball — pulses at the head */}
-            <circle cx="95" cy="36" r="6" fill="#2f9e44"
-              style={{animation:"pulseGlow 1.4s ease-in-out 0.8s infinite"}}/>
+              strokeDasharray="320" strokeDashoffset="320"
+              style={{animation:"waveDrawSlow 2.8s cubic-bezier(0.25,0.46,0.45,0.94) 0.5s forwards"}}/>
+            {/* Green dot — appears at wave head, then pulses */}
+            <circle cx="165" cy="50" r="8" fill="#2f9e44" className="splash-ball-el"/>
           </svg>
         </div>
 
-        {/* Wordmark — fades in after wave draws */}
-        <div style={{textAlign:"center",animation:"splashWordmark 0.6s ease 0.7s both"}}>
-          <div style={{fontSize:46,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.05em",lineHeight:1}}>
+        {/* Wordmark */}
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
+          <div style={{fontSize:56,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.05em",lineHeight:1,animation:"wordmarkIn 1.4s cubic-bezier(0.22,1,0.36,1) 2.9s both"}}>
             day<span style={{fontWeight:300,color:"#6b6864"}}>flow</span>
           </div>
+          <div style={{width:44,height:2,borderRadius:2,background:"#2f9e44",transformOrigin:"center",animation:"underlineGrow 1.2s cubic-bezier(0.4,0,0.2,1) 3.8s both"}}/>
         </div>
 
-        {/* Tagline — last to appear */}
-        <div style={{fontSize:14,fontWeight:500,color:"#9e9b95",letterSpacing:"0.01em",animation:"splashTagline 0.6s ease 1.1s both"}}>
+        {/* Tagline */}
+        <div style={{fontSize:15,fontWeight:400,color:"#9e9b95",letterSpacing:"0.03em",animation:"taglineIn 1.4s cubic-bezier(0.22,1,0.36,1) 3.9s both"}}>
           Take your spending day by day
         </div>
 
