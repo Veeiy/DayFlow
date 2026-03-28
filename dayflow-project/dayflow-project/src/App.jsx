@@ -195,6 +195,7 @@ const I = ({ n, s=16, c="currentColor" }) => {
     user:     <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
     users:    <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
     edit:     <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    "edit-2": <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>,
     more:     <><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></>,
     chevron:  <polyline points="9 18 15 12 9 6"/>,
   };
@@ -1405,7 +1406,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         /* Transaction rows */
         .tx-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${darkMode?"rgba(255,255,255,0.06)":"#f0efe9"};}
         .tx-row:last-child{border-bottom:none;}
-        .rm{background:none;border:none;cursor:pointer;color:${darkMode?"#3a3a4e":"#ccc9c0"};padding:5px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:color 0.15s;line-height:1;}
+        .rm{background:none;border:none;cursor:pointer;color:${darkMode?"#6a6a7e":"#ccc9c0"};padding:5px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:color 0.15s;line-height:1;}
         .rm:hover{color:#e03131;}
 
         /* Bottom nav */
@@ -2947,7 +2948,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                             {[
                               {l:"Income",v:inc,c:"#2f9e44"},
                               {l:"Bills",v:bills,c:"#e03131"},
-                              {l:"Net pool",v:pool,c:pool>=0?"#1a1a2e":"#e03131"},
+                              {l:"Net pool",v:pool,c:pool>=0?dmText:"#e03131"},
                             ].map(({l,v,c})=>(
                               <div key={l} style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:10,padding:"10px 12px"}}>
                                 <div style={{fontSize:9,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{l}</div>
@@ -3655,15 +3656,15 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   style={{
                     width:"100%",display:"flex",alignItems:"center",gap:14,
                     padding:"18px 20px",background:"none",border:"none",
-                    borderTop:i>0?"1px solid #f0efe9":"none",
+                    borderTop:i>0?`1px solid ${dmBorder2}`:"none",
                     cursor:"pointer",fontFamily:"inherit",
                     transition:"background 0.15s",textAlign:"left",
                   }}
-                  onMouseEnter={e=>e.currentTarget.style.background="#f8f7f2"}
+                  onMouseEnter={e=>e.currentTarget.style.background=dm("#22222e","#f8f7f2")}
                   onMouseLeave={e=>e.currentTarget.style.background="none"}
                 >
-                  <div style={{width:42,height:42,borderRadius:13,background:dm("#22222e","#f0efe9"),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <I n={item.icon} s={20} c="#1a1a2e"/>
+                  <div style={{width:42,height:42,borderRadius:13,background:dm("#2a2a3a","#f0efe9"),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <I n={item.icon} s={20} c={dmText}/>
                   </div>
                   <C style={{gap:2,flex:1}}>
                     <div style={{fontSize:15,fontWeight:700,color:dmText}}>{item.label}</div>
