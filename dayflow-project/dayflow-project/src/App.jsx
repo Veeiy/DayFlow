@@ -292,6 +292,7 @@ export default function App() {
   const [toast,setToast]             = useState(null);
   const [guestMode,setGuestMode]     = useState(false);
   const [showSplash,setShowSplash]   = useState(true);
+  const [splashFading,setSplashFading] = useState(false);
   const [showGate,setShowGate]       = useState(null); // gate message string
   const [cameraOpen,setCameraOpen]   = useState(false);
   const showToast = (msg, type='success') => { setToast({msg,type}); setTimeout(()=>setToast(null),2800); };
@@ -305,8 +306,12 @@ export default function App() {
     setFeedbackStep('thanks');
   };
 
-  // ── Splash screen timer ──────────────────────────────────────────────────
-  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 6400); return () => clearTimeout(t); }, []);
+  // ── Splash screen timer — fade starts at 4.2s, unmount at 6.4s ──────────────
+  useEffect(() => {
+    const fadeTimer   = setTimeout(() => setSplashFading(true),  4200);
+    const removeTimer = setTimeout(() => setShowSplash(false),   6400);
+    return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
+  }, []);
 
   // ── Guest demo data ──────────────────────────────────────────────────────
   const GUEST_DATA = {
@@ -1169,15 +1174,18 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         @keyframes splashScaleIn { 0%{transform:scale(0.62) translateY(16px);opacity:0} 55%{transform:scale(1.03) translateY(-3px);opacity:1} 100%{transform:scale(1) translateY(0);opacity:1} }
         @keyframes waveDrawSlow { 0%{stroke-dashoffset:300;opacity:0} 6%{opacity:1} 100%{stroke-dashoffset:0;opacity:1} }
         @keyframes ghostDrawSlow { 0%{stroke-dashoffset:340;opacity:0} 10%{opacity:1} 100%{stroke-dashoffset:0;opacity:1} }
-        @keyframes splashExit { 0%{opacity:1} 100%{opacity:0} }
         @keyframes ballPulse { 0%,100%{r:8;opacity:1} 50%{r:11;opacity:0.8} }
         @keyframes wordmarkIn { 0%{opacity:0;transform:translateY(20px);filter:blur(4px)} 100%{opacity:1;transform:translateY(0);filter:blur(0)} }
         @keyframes underlineGrow { 0%{transform:scaleX(0);opacity:0} 60%{opacity:1} 100%{transform:scaleX(1);opacity:1} }
         @keyframes taglineIn { 0%{opacity:0;transform:translateY(12px)} 100%{opacity:1;transform:translateY(0)} }
         .splash-ball-pulse { animation: ballPulse 2s ease-in-out 3.5s infinite; }
-        .splash-exit { animation: splashExit 2s ease 4.2s both; }
       `}</style>
-      <div className="splash-exit" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:40,animation:"splashFadeIn 0.8s ease both"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:40,
+        animation:"splashFadeIn 0.8s ease both",
+        opacity: splashFading ? 0 : 1,
+        transition: splashFading ? "opacity 2s ease" : "none",
+        pointerEvents:"none"
+      }}>
         <div style={{animation:"splashScaleIn 1.8s cubic-bezier(0.34,1.05,0.64,1) 0.1s both"}}>
           <svg width="220" height="100" viewBox="0 0 220 100" fill="none">
             <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50 Q192 88 215 50"
