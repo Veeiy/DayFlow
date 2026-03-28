@@ -1191,15 +1191,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           0%   { opacity: 1; }
           100% { opacity: 0; }
         }
-        /* Dot rides the path — same easing + delay as the wave draw */
-        @keyframes dotRide {
-          0%   { offset-distance: 0%; }
-          100% { offset-distance: 100%; }
-        }
-        /* Dot settles with a gentle pulse once it stops */
+        /* Dot pulses gently once it arrives */
         @keyframes ballPulse {
-          0%, 100% { transform: scale(1);    opacity: 1; }
-          50%       { transform: scale(1.35); opacity: 0.85; }
+          0%, 100% { r: 8;  opacity: 1; }
+          50%       { r: 11; opacity: 0.8; }
         }
         @keyframes wordmarkIn {
           0%   { opacity: 0; transform: translateY(20px); filter: blur(4px); }
@@ -1214,13 +1209,8 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           0%   { opacity: 0; transform: translateY(12px); letter-spacing: -0.02em; }
           100% { opacity: 1; transform: translateY(0);    letter-spacing:  0.04em; }
         }
-        /* Dot starts at origin, rides the path, then pulses when it arrives */
-        .splash-ball-el {
-          offset-path: path('M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50');
-          offset-distance: 0%;
-          offset-rotate: 0deg;
-          animation: dotRide 2.8s cubic-bezier(0.25,0.46,0.45,0.94) 0.5s forwards,
-                     ballPulse 2s ease-in-out 3.5s infinite;
+        .splash-ball-pulse {
+          animation: ballPulse 2s ease-in-out 3.5s infinite;
         }
         .splash-exit {
           animation: splashExit 0.6s ease 4.8s both;
@@ -1229,30 +1219,35 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
       <div className="splash-exit" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:40,animation:"splashFadeIn 0.8s ease both"}}>
 
-        {/* Wave — scales up then draws */}
-        <div style={{animation:"splashScaleIn 1.8s cubic-bezier(0.34,1.05,0.64,1) 0.1s both",position:"relative"}}>
+        {/* Wave — scales up then draws, dot rides it via animateMotion */}
+        <div style={{animation:"splashScaleIn 1.8s cubic-bezier(0.34,1.05,0.64,1) 0.1s both"}}>
           <svg width="220" height="100" viewBox="0 0 220 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             {/* Ghost future path */}
             <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50 Q192 88 215 50"
               stroke="#d4d0c8" strokeWidth="2" strokeLinecap="round" fill="none"
               strokeDasharray="360" strokeDashoffset="360"
               style={{animation:"ghostDrawSlow 3.2s cubic-bezier(0.4,0,0.2,1) 0.4s forwards"}}/>
-            {/* Solid active portion */}
-            <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"
+            {/* Solid active portion — same path the dot rides */}
+            <path id="wavePath"
+              d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"
               stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round" fill="none"
               strokeDasharray="320" strokeDashoffset="320"
               style={{animation:"waveDrawSlow 2.8s cubic-bezier(0.25,0.46,0.45,0.94) 0.5s forwards"}}/>
+            {/* Green dot — animateMotion keeps it exactly on the path */}
+            <circle r="8" fill="#2f9e44" className="splash-ball-pulse">
+              <animateMotion
+                dur="2.8s"
+                begin="0.5s"
+                fill="freeze"
+                calcMode="spline"
+                keyPoints="0;1"
+                keyTimes="0;1"
+                keySplines="0.25 0.46 0.45 0.94"
+              >
+                <mpath href="#wavePath"/>
+              </animateMotion>
+            </circle>
           </svg>
-          {/* Green dot rides the path as it draws — positioned absolutely over SVG */}
-          <div className="splash-ball-el" style={{
-            position:"absolute",
-            top:0,left:0,
-            width:16,height:16,
-            borderRadius:"50%",
-            background:"#2f9e44",
-            boxShadow:"0 0 0 4px rgba(47,158,68,0.2)",
-            marginTop:-8,marginLeft:-8,
-          }}/>
         </div>
 
         {/* Wordmark — appears as wave starts drawing */}
