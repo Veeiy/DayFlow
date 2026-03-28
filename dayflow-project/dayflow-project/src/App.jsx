@@ -2527,6 +2527,70 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     </R>
                   </div>
                 )}
+
+                {/* Bill Calendar */}
+                {(()=>{
+                  const billsByDay = {};
+                  for (const r of (data.recurringPayments||[])) {
+                    const d = Math.min(r.dueDay||1, DIM);
+                    if (!billsByDay[d]) billsByDay[d] = [];
+                    billsByDay[d].push(r);
+                  }
+                  const FL2 = {monthly:"/mo",weekly:"/wk",yearly:"/yr",daily:"/day"};
+                  return (
+                    <div className="card" style={{padding:22}}>
+                      <div className="sec-hd">Bill Calendar — {new Date().toLocaleDateString("en-US",{month:"long"})}</div>
+                      <div style={{fontSize:12,color:"#9e9b95",marginBottom:16,lineHeight:1.6}}>
+                        Bills are spread into your daily allowance — these are the actual due dates.
+                      </div>
+                      {Object.keys(billsByDay).length===0?(
+                        <div style={{textAlign:"center",padding:30,color:"#bbb9b0",fontSize:13}}>Add bills above to see them here</div>
+                      ):Array.from({length:DIM},(_,i)=>i+1).map(day=>{
+                        const bills = billsByDay[day];
+                        if (!bills?.length) return null;
+                        const dayTotal = bills.reduce((s,r)=>s+r.amount,0);
+                        const isToday  = day===dayOfMonth();
+                        const isPast   = day<dayOfMonth();
+                        return (
+                          <div key={day} style={{marginBottom:14}}>
+                            <R style={{gap:10,marginBottom:8}}>
+                              <div style={{width:36,height:36,borderRadius:11,background:isToday?"#1a1a2e":isPast?"#f0efe9":"#f8f7f2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                                <span style={{fontSize:13,fontWeight:800,color:isToday?"#fff":isPast?"#bbb9b0":"#1a1a2e"}}>{day}</span>
+                              </div>
+                              <R style={{flex:1,justifyContent:"space-between",alignItems:"center"}}>
+                                <span style={{fontSize:13,fontWeight:600,color:isPast?"#bbb9b0":"#1a1a2e"}}>
+                                  {isToday?"Today":"Day "}{isToday?"":day}
+                                </span>
+                                <span style={{fontSize:13,fontWeight:700,color:isPast?"#bbb9b0":"#e03131"}}>−{fmtFull(dayTotal)}</span>
+                              </R>
+                            </R>
+                            {bills.map((r,i)=>{
+                              const cat = CAT_MAP[r.category||"other"]||CAT_MAP.other;
+                              return (
+                                <R key={i} style={{marginLeft:46,marginBottom:6,gap:8}}>
+                                  <div style={{width:4,borderRadius:2,background:"#1a1a2e",flexShrink:0,alignSelf:"stretch"}}/>
+                                  <R style={{flex:1,justifyContent:"space-between",background:"#f8f7f2",borderRadius:10,padding:"9px 12px"}}>
+                                    <R style={{gap:8}}>
+                                      <div style={{width:22,height:22,borderRadius:7,background:cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                        <I n={cat.icon} s={11} c={cat.fg}/>
+                                      </div>
+                                      <C style={{gap:1}}>
+                                        <span style={{fontSize:12,fontWeight:600,color:isPast?"#bbb9b0":"#1a1a2e"}}>{r.name}</span>
+                                        <span style={{fontSize:10,color:"#bbb9b0"}}>{FL2[r.frequency]||"/mo"} · due day {r.dueDay||1}</span>
+                                      </C>
+                                    </R>
+                                    <span style={{fontSize:12,fontWeight:600,color:isPast?"#ccc9c0":"#e03131"}}>−{fmtFull(r.amount)}</span>
+                                  </R>
+                                </R>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
               </C>
             );
           })()}
@@ -2749,9 +2813,14 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               </C>
                             </R>
                             {m.id!=="owner"&&(
-                              <button className="rm" onClick={()=>removeMember(m.id)} style={{color:"#ccc9c0"}}>
-                                <I n="x" s={15}/>
-                              </button>
+                              <R style={{gap:6}}>
+                                <button className="rm" onClick={()=>setEditMemberId(editMemberId===m.id?null:m.id)} style={{color:"#9e9b95"}}>
+                                  <I n="edit-2" s={14}/>
+                                </button>
+                                <button className="rm" onClick={()=>removeMember(m.id)} style={{color:"#ccc9c0"}}>
+                                  <I n="x" s={15}/>
+                                </button>
+                              </R>
                             )}
                           </R>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
@@ -2770,6 +2839,31 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                             <span>Daily share of pool</span>
                             <span style={{fontWeight:700,color:"#1a1a2e"}}>{fmtFull(dailyShare)}/day</span>
                           </R>
+                          {/* Inline edit form */}
+                          {editMemberId===m.id&&m.id!=="owner"&&(
+                            <div style={{marginTop:12,padding:12,background:"#f8f7f2",borderRadius:12}}>
+                              <div style={{fontSize:11,fontWeight:700,color:"#9e9b95",marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase"}}>Edit member</div>
+                              <input className="inp" placeholder="Name" defaultValue={m.name} id={`edit-name-${m.id}`} style={{marginBottom:8}}/>
+                              <input className="inp" type="number" placeholder="Monthly income" defaultValue={m.monthlyIncome||0} id={`edit-income-${m.id}`} style={{marginBottom:8}}/>
+                              <R style={{gap:8}}>
+                                {["#1a1a2e","#e03131","#2f9e44","#7048e8","#e67700","#c2255c","#1971c2","#0c8599"].map(col=>(
+                                  <button key={col} onClick={()=>{
+                                    upd({members:(data.members||[]).map(x=>x.id===m.id?{...x,color:col}:x)});
+                                  }} style={{width:22,height:22,borderRadius:"50%",background:col,border:m.color===col?"3px solid #1a1a2e":"2px solid transparent",cursor:"pointer",flexShrink:0}}/>
+                                ))}
+                              </R>
+                              <R style={{gap:8,marginTop:10}}>
+                                <button className="btn" style={{flex:1,justifyContent:"center",padding:"10px 0",fontSize:13}} onClick={()=>{
+                                  const name = document.getElementById(`edit-name-${m.id}`)?.value?.trim();
+                                  const income = parseFloat(document.getElementById(`edit-income-${m.id}`)?.value)||0;
+                                  if (!name) return;
+                                  upd({members:(data.members||[]).map(x=>x.id===m.id?{...x,name,monthlyIncome:income}:x)});
+                                  setEditMemberId(null);
+                                }}>Save</button>
+                                <button className="btn-ghost" style={{flex:1,justifyContent:"center",padding:"10px 0",fontSize:13}} onClick={()=>setEditMemberId(null)}>Cancel</button>
+                              </R>
+                            </div>
+                          )}
                           {/* Bills list */}
                           {(m.recurringPayments||[]).length>0&&(
                             <C style={{gap:0,marginTop:10,paddingTop:10,borderTop:"1px solid #f0efe9"}}>
