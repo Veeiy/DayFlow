@@ -306,7 +306,7 @@ export default function App() {
   };
 
   // ── Splash screen timer ──────────────────────────────────────────────────
-  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 5400); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 5600); return () => clearTimeout(t); }, []);
 
   // ── Guest demo data ──────────────────────────────────────────────────────
   const GUEST_DATA = {
@@ -1158,9 +1158,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
     : `You're on track — ${fmtFull(todayLeft)} free today`;
 
   // ── Auth loading ────────────────────────────────────────────────────────────
-  // ── Splash screen ────────────────────────────────────────────────────────────
-  if (showSplash) return (
-    <div style={{minHeight:"100vh",background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",overflow:"hidden"}}>
+  // ── Splash screen — rendered as overlay so app shows through on exit ────────
+  {showSplash && (
+    <div style={{position:"fixed",inset:0,background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",overflow:"hidden",zIndex:99999}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
@@ -1213,7 +1213,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           animation: ballPulse 2s ease-in-out 3.5s infinite;
         }
         .splash-exit {
-          animation: splashExit 0.6s ease 4.8s both;
+          animation: splashExit 1.2s ease 4.2s both;
         }
       `}</style>
 
@@ -1265,7 +1265,8 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
       </div>
     </div>
-  );
+    </div>
+  )}
 
   if (authLoading && !guestMode) return (
     <div style={{minHeight:"100vh",background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
