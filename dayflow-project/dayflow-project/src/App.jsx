@@ -306,7 +306,7 @@ export default function App() {
   };
 
   // ── Splash screen timer ──────────────────────────────────────────────────
-  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 5600); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 6400); return () => clearTimeout(t); }, []);
 
   // ── Guest demo data ──────────────────────────────────────────────────────
   const GUEST_DATA = {
@@ -1213,7 +1213,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           animation: ballPulse 2s ease-in-out 3.5s infinite;
         }
         .splash-exit {
-          animation: splashExit 1.2s ease 4.2s both;
+          animation: splashExit 2s ease 4.2s both;
         }
       `}</style>
 
