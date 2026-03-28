@@ -306,7 +306,7 @@ export default function App() {
   };
 
   // ── Splash screen timer ──────────────────────────────────────────────────
-  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 5000); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 5400); return () => clearTimeout(t); }, []);
 
   // ── Guest demo data ──────────────────────────────────────────────────────
   const GUEST_DATA = {
@@ -1218,7 +1218,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                      ballPulse 2.4s ease-in-out 3.7s infinite;
         }
         .splash-exit {
-          animation: splashExit 0.6s ease 4.4s both;
+          animation: splashExit 0.6s ease 4.8s both;
         }
       `}</style>
 
@@ -1242,16 +1242,16 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           </svg>
         </div>
 
-        {/* Wordmark */}
+        {/* Wordmark — appears as wave starts drawing */}
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
-          <div style={{fontSize:56,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.05em",lineHeight:1,animation:"wordmarkIn 1.4s cubic-bezier(0.22,1,0.36,1) 2.9s both"}}>
+          <div style={{fontSize:56,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.05em",lineHeight:1,animation:"wordmarkIn 1.2s cubic-bezier(0.22,1,0.36,1) 0.8s both"}}>
             day<span style={{fontWeight:300,color:"#6b6864"}}>flow</span>
           </div>
-          <div style={{width:44,height:2,borderRadius:2,background:"#2f9e44",transformOrigin:"center",animation:"underlineGrow 1.2s cubic-bezier(0.4,0,0.2,1) 3.8s both"}}/>
+          <div style={{width:44,height:2,borderRadius:2,background:"#2f9e44",transformOrigin:"center",animation:"underlineGrow 1.0s cubic-bezier(0.4,0,0.2,1) 1.8s both"}}/>
         </div>
 
-        {/* Tagline */}
-        <div style={{fontSize:15,fontWeight:400,color:"#9e9b95",letterSpacing:"0.03em",animation:"taglineIn 1.4s cubic-bezier(0.22,1,0.36,1) 3.9s both"}}>
+        {/* Tagline — fades in right after wordmark */}
+        <div style={{fontSize:15,fontWeight:400,color:"#9e9b95",letterSpacing:"0.03em",animation:"taglineIn 1.2s cubic-bezier(0.22,1,0.36,1) 1.4s both"}}>
           Take your spending day by day
         </div>
 
