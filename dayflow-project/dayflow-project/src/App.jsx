@@ -1881,7 +1881,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               <div className="card" style={{padding:22}}>
                 <div className="sec-hd">Log a transaction</div>
                 <R style={{gap:8,marginBottom:10}}>
-                  <input className="inp" placeholder={newTx.type==="expense"?"What did you spend on?":"What came in?"} value={newTx.label}
+                  <input className="inp" placeholder={newTx.type==="expense"?"What did you spend on?":"Source (e.g. paycheck, gift)"} value={newTx.label}
                     onChange={e=>setNewTx(p=>({...p,label:e.target.value}))}
                     onKeyDown={e=>e.key==="Enter"&&addTx()} style={{flex:1}}/>
                   <div className="seg">
@@ -1971,8 +1971,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               const key=`${yr}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
               const e=data.dailyEntries[key]||{transactions:[]};
               const spent = calcDaySpent(e, ptx, key);
+              const incomeLogged = (e.transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
               const hasTx = spent>0||(e.transactions||[]).length>0;
-              dayData[d]  = {spent,net:monthAllow-spent,hasTx,key};
+              dayData[d]  = {spent,net:monthAllow-spent+incomeLogged,hasTx,key};
             }
             const viewMonthSpent = Object.values(dayData).reduce((s,d) => s + d.spent, 0);
             const viewPoolLeft   = monthPool - viewMonthSpent;
@@ -2233,9 +2234,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
                     {Array.from({length:firstDow}).map((_,i)=><div key={`e${i}`}/>)}
                     {Array.from({length:dim}).map((_,i)=>{
-                      const d=i+1, dd=dayData[d];
+                      const d=i+1, dd=dayData[d]||{hasTx:false,net:0,spent:0,key:null};
                       const realToday = isCurrentMonth && d===now.getDate();
-                      const isPast = isCurrentMonth ? d<now.getDate() : true; // all days in past months are past
+                      const isPast = isCurrentMonth ? d<now.getDate() : true;
                       const isTday = realToday;
                       const isFut  = isCurrentMonth && d>now.getDate();
                       const saved=isPast&&dd.hasTx&&dd.net>0, ovr=isPast&&dd.hasTx&&dd.net<0;
@@ -2244,12 +2245,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       if (isTday)      {bg="#1a1a2e";tc="#fff";bc="#1a1a2e";}
                       else if (isSel)  {bg="#f0efe9";tc="#1a1a2e";bc="#1a1a2e";}
                       else if (saved)  {bg="#ebfbee";tc="#2f9e44";bc="#b2f2bb";}
-                      else if (ovr)    {bg:"#fff5f5";tc="#e03131";bc="#ffc9c9";}
+                      else if (ovr)    {bg="#fff5f5";tc="#e03131";bc="#ffc9c9";}
                       else if (isPast) {bg="#f8f7f2";tc="#ccc9c0";bc="rgba(0,0,0,0.04)";}
                       else if (isFut)  {bg="transparent";tc="#e0ddd4";bc="transparent";}
-                      if (ovr) {bg="#fff5f5"; bc="#ffc9c9";}
                       const amt = Math.abs(dd.net);
-                      const amtStr = amt>=100?`${saved?"+":"−"}$${Math.round(amt)}`:amt>=1?`${saved?"+":"−"}$${Math.round(amt)}`:null;
+                      const amtStr = amt>=1?`${saved?"+":"−"}$${Math.round(amt)}`:null;
                       return (
                         <button key={d} className={`cal-cell${!isFut?" active":""}`}
                           onClick={()=>!isFut&&setSelDay(isSel?null:d)}
@@ -2450,7 +2450,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 {/* Add form */}
                 <div className="card" style={{padding:22}}>
                   <div className="sec-hd">Add recurring expense</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))",gap:8,marginBottom:14}}>
                     {CATS.map(c=>(
                       <button key={c.id} onClick={()=>setNewRec(p=>({...p,category:c.id}))}
                         style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"10px 6px",borderRadius:16,border:"1.5px solid",borderColor:newRec.category===c.id?c.fg:"#e8e5dc",background:newRec.category===c.id?c.bg:"#fafaf8",cursor:"pointer",transition:"all 0.15s",fontFamily:"inherit"}}>
