@@ -3146,7 +3146,51 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     <R key={l} style={{justifyContent:"space-between",padding:"10px 0",borderTop:sep?"1px solid #f0efe9":"none",marginTop:sep?4:0}}>
                       <span style={{fontSize:13,color:"#9e9b95",fontStyle:italic?"italic":"normal"}}>{l}</span>
                       <span style={{fontSize:14,fontWeight:bold?800:500,color:c}}>{s}{fmtFull(v)}</span>
-                    </R>\n                  ))\n                )}\n              </div>\n\n              {/* Monthly income history */}\n              {Object.keys(data.monthlyIncomes||{}).length > 0 && (\n                <div className=\"card\" style={{padding:22}}>\n                  <R style={{justifyContent:\"space-between\",alignItems:\"center\",marginBottom:14}}>\n                    <div className=\"sec-hd\" style={{marginBottom:0}}>Monthly income history</div>\n                    <div style={{fontSize:11,color:\"#bbb9b0\"}}>Tell the AI to update any month</div>\n                  </R>\n                  {Object.entries(data.monthlyIncomes||{})\n                    .sort(([a],[b]) => b.localeCompare(a))\n                    .slice(0,12)\n                    .map(([month, amount]) => {\n                      const d = new Date(month+'-01');\n                      const label = d.toLocaleDateString('en-US',{month:'long',year:'numeric'});\n                      const isCurrent = month === thisMonth();\n                      return (\n                        <R key={month} style={{justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid #f8f7f2'}}>\n                          <R style={{gap:8}}>\n                            <div style={{width:8,height:8,borderRadius:'50%',background:isCurrent?'#2f9e44':'#e0ddd4',flexShrink:0,marginTop:4}}/>\n                            <span style={{fontSize:13,color:'#6b6864'}}>{label}{isCurrent?' (current)':''}</span>\n                          </R>\n                          <span style={{fontSize:13,fontWeight:700,color:'#1a1a2e'}}>{fmtFull(amount)}/mo</span>\n                        </R>\n                      );\n                    })}\n                  <div style={{fontSize:11,color:'#bbb9b0',marginTop:12,fontStyle:'italic'}}>\n                    Say "My January income was $3,800" in the AI Advisor to add past months\n                  </div>\n                </div>\n              )}\n\n              <div className=\"card\" style={{padding:22,borderColor:\"#ffc9c9\",borderWidth:1.5}}>\n                <div style={{fontSize:13,fontWeight:700,color:\"#e03131\",marginBottom:6}}>Danger zone</div>\n                <div style={{fontSize:13,color:\"#bbb9b0\",marginBottom:16}}>Clear all spending history. Income and recurring stay.</div>\n                <button className=\"btn-ghost\" style={{borderColor:\"#ffc9c9\",color:\"#e03131\",fontSize:12}}\n                  onClick={()=>{if(window.confirm(\"Clear all spending history?\"))upd({dailyEntries:{},plaidTransactions:[]});}}>\n                  Clear history\n                </button>\n              </div>\n            </C>\n          )}
+                    </R>
+                  ))
+                )}
+              </div>
+
+              {/* Monthly income history */}
+              {Object.keys(data.monthlyIncomes||{}).length > 0 && (
+                <div className="card" style={{padding:22}}>
+                  <R style={{justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                    <div className="sec-hd" style={{marginBottom:0}}>Monthly income history</div>
+                    <div style={{fontSize:11,color:"#bbb9b0"}}>Tell the AI to update any month</div>
+                  </R>
+                  {Object.entries(data.monthlyIncomes||{})
+                    .sort(([a],[b]) => b.localeCompare(a))
+                    .slice(0,12)
+                    .map(([month, amount]) => {
+                      const d = new Date(month+'-01');
+                      const label = d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+                      const isCurrent = month === thisMonth();
+                      return (
+                        <R key={month} style={{justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid #f8f7f2'}}>
+                          <R style={{gap:8}}>
+                            <div style={{width:8,height:8,borderRadius:'50%',background:isCurrent?'#2f9e44':'#e0ddd4',flexShrink:0,marginTop:4}}/>
+                            <span style={{fontSize:13,color:'#6b6864'}}>{label}{isCurrent?' (current)':''}</span>
+                          </R>
+                          <span style={{fontSize:13,fontWeight:700,color:'#1a1a2e'}}>{fmtFull(amount)}/mo</span>
+                        </R>
+                      );
+                    })}
+                  <div style={{fontSize:11,color:'#bbb9b0',marginTop:12,fontStyle:'italic'}}>
+                    Say "My January income was $3,800" in the AI Advisor to add past months
+                  </div>
+                </div>
+              )}
+
+              <div className="card" style={{padding:22,borderColor:"#ffc9c9",borderWidth:1.5}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#e03131",marginBottom:6}}>Danger zone</div>
+                <div style={{fontSize:13,color:"#bbb9b0",marginBottom:16}}>Clear all spending history. Income and recurring stay.</div>
+                <button className="btn-ghost" style={{borderColor:"#ffc9c9",color:"#e03131",fontSize:12}}
+                  onClick={()=>{if(window.confirm("Clear all spending history?"))upd({dailyEntries:{},plaidTransactions:[]});}}>
+                  Clear history
+                </button>
+              </div>
+            </C>
+          )}
         </div>
 
         {/* ── Nav ──────────────────────────────────────────────────────────────── */}
