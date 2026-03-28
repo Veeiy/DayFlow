@@ -8,6 +8,7 @@ const ONBOARD_KEY = "dayflow_onboarded_v1";
 const DEFAULTS  = {
   monthlyIncome: 0,
   monthlyIncomes: {}, // { "YYYY-MM": number } — historical income per month
+  incomeSources: [], // [{ id, label, amount }] — multiple income sources
   recurringPayments: [],
   dailyEntries: {},
   plaidConnected: false,
@@ -246,6 +247,9 @@ export default function App() {
   const [newRec,setNewRec]   = useState({name:"",amount:"",frequency:"monthly",category:"housing",dueDay:1});
   const [incStr,setIncStr]   = useState("");
   const [editInc,setEditInc] = useState(false);
+  const [newIncSrc,setNewIncSrc] = useState({label:"",amount:""});
+  const [editRecId,setEditRecId] = useState(null);
+  const [editRecData,setEditRecData] = useState(null);
   const [modal,setModal]     = useState(false);
   const [step,setStep]       = useState(0);
   const [selBank,setSelBank] = useState(null);
@@ -352,6 +356,22 @@ export default function App() {
       }
     });
     return ()=>subscription.unsubscribe();
+  },[]);
+
+  // ── Handle Stripe redirect back ──────────────────────────────────────────────
+  useEffect(()=>{
+    const params = new URLSearchParams(window.location.search);
+    const upgradeStatus = params.get('upgrade');
+    const plan = params.get('plan');
+    if (upgradeStatus === 'success' && plan) {
+      // Stripe webhook will update Supabase — optimistically update local state
+      upd({ plan });
+      showToast(`🎉 Welcome to ${plan.charAt(0).toUpperCase()+plan.slice(1)}! Your plan is now active.`);
+      window.history.replaceState({}, '', '/');
+    } else if (upgradeStatus === 'cancelled') {
+      showToast('Upgrade cancelled — no charge was made.');
+      window.history.replaceState({}, '', '/');
+    }
   },[]);
 
   // ── Save on tab-away — flush any pending debounce immediately ───────────────
@@ -935,11 +955,19 @@ You can execute multiple actions in one response. Include them ALL at the end, e
     try {
       const priceId = PRICES[planKey][upgradeBilling];
       const { data: d, error } = await supabase.functions.invoke("stripe-checkout", {
-        body: { priceId, userId: user.id, email: user.email },
+        body: { priceId, userId: user.id, email: user.email, plan: planKey },
       });
-      if (error) throw error;
+      if (error) {
+        console.error("Checkout error:", error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
+      if (d?.error) throw new Error(d.error);
       if (d?.url) window.location.href = d.url;
-    } catch(e) { alert("Could not start checkout. Please try again."); }
+      else throw new Error("No checkout URL returned");
+    } catch(e) {
+      console.error("handleUpgrade failed:", e);
+      alert("Could not start checkout: " + (e.message || "Please try again."));
+    }
     finally { setUpgradeLoading(false); }
   };
 
@@ -2507,15 +2535,51 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       </C>
                     </R>
                     {grouped[cat.id].map(p=>(
-                      <div key={p.id} className="tx-row">
-                        <C style={{flex:1}}>
-                          <div style={{fontSize:14,fontWeight:600}}>{p.name}</div>
-                          <div style={{fontSize:11,color:"#bbb9b0",marginTop:1}}>
-                            {fmtFull(p.amount)}{FL[p.frequency]} · {fmtFull(monthlyEquiv(p))}/mo · due day {p.dueDay||1}
+                      <div key={p.id}>
+                        <div className="tx-row">
+                          <C style={{flex:1}}>
+                            <div style={{fontSize:14,fontWeight:600}}>{p.name}</div>
+                            <div style={{fontSize:11,color:"#bbb9b0",marginTop:1}}>
+                              {fmtFull(p.amount)}{FL[p.frequency]} · {fmtFull(monthlyEquiv(p))}/mo · due day {p.dueDay||1}
+                            </div>
+                          </C>
+                          <div style={{fontSize:14,fontWeight:700,color:"#e03131",marginRight:8}}>−{fmtFull(p.amount)}</div>
+                          <button className="rm" style={{color:"#9e9b95",marginRight:4}} onClick={()=>{
+                            if (editRecId===p.id) { setEditRecId(null); return; }
+                            setEditRecId(p.id);
+                            setEditRecData({name:p.name,amount:p.amount,frequency:p.frequency,category:p.category||"other",dueDay:p.dueDay||1});
+                          }}><I n="edit-2" s={13}/></button>
+                          <button className="rm" onClick={()=>upd({recurringPayments:data.recurringPayments.filter(x=>x.id!==p.id)})}><I n="x" s={14}/></button>
+                        </div>
+                        {editRecId===p.id&&editRecData&&(
+                          <div style={{padding:"12px",background:"#f8f7f2",borderRadius:12,marginBottom:6}}>
+                            <R style={{gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                              <input className="inp" placeholder="Name" value={editRecData.name} onChange={e=>setEditRecData(p=>({...p,name:e.target.value}))} style={{flex:2,minWidth:120}}/>
+                              <input className="inp" type="number" placeholder="Amount" value={editRecData.amount} onChange={e=>setEditRecData(p=>({...p,amount:e.target.value}))} style={{flex:1,minWidth:80}}/>
+                            </R>
+                            <R style={{gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                              <select className="sel" value={editRecData.frequency} onChange={e=>setEditRecData(p=>({...p,frequency:e.target.value}))} style={{flex:1}}>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                              </select>
+                              <select className="sel" value={editRecData.category} onChange={e=>setEditRecData(p=>({...p,category:e.target.value}))} style={{flex:1}}>
+                                {CATS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                              </select>
+                              <input className="inp" type="number" placeholder="Due day" value={editRecData.dueDay} onChange={e=>setEditRecData(p=>({...p,dueDay:parseInt(e.target.value)||1}))} style={{width:80,flex:"none"}}/>
+                            </R>
+                            <R style={{gap:8}}>
+                              <button className="btn" style={{flex:1,justifyContent:"center",padding:"10px",fontSize:13}} onClick={()=>{
+                                const amt=parseFloat(editRecData.amount)||0;
+                                if (!editRecData.name.trim()||!amt) return;
+                                upd({recurringPayments:data.recurringPayments.map(x=>x.id===p.id?{...x,...editRecData,amount:amt,dueDay:parseInt(editRecData.dueDay)||1}:x)});
+                                setEditRecId(null);
+                              }}>Save</button>
+                              <button className="btn-ghost" style={{flex:1,justifyContent:"center",padding:"10px",fontSize:13}} onClick={()=>setEditRecId(null)}>Cancel</button>
+                            </R>
                           </div>
-                        </C>
-                        <div style={{fontSize:14,fontWeight:700,color:"#e03131",marginRight:8}}>−{fmtFull(p.amount)}</div>
-                        <button className="rm" onClick={()=>upd({recurringPayments:data.recurringPayments.filter(x=>x.id!==p.id)})}><I n="x" s={14}/></button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -3262,21 +3326,78 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div className="hero-band" style={{background:"#1a1a2e"}}/>
                 <div style={{marginTop:8}}>
                   <div className="sec-hd">Monthly take-home</div>
-                  <div style={{fontSize:13,color:"#9e9b95",marginBottom:20,lineHeight:1.6}}>Your after-tax income from last month — becomes this month's pool.</div>
-                  {editInc?(
-                    <R style={{gap:8}}>
-                      <input className="inp" type="number" placeholder="e.g. 5000" value={incStr} onChange={e=>setIncStr(e.target.value)} autoFocus style={{flex:1}}
-                        onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(incStr);if(!isNaN(v))upd({monthlyIncome:v});setEditInc(false);}}}/>
-                      <button className="btn" onClick={()=>{const v=parseFloat(incStr);if(!isNaN(v))upd({monthlyIncome:v});setEditInc(false);}}>Save</button>
+                  <div style={{fontSize:13,color:"#9e9b95",marginBottom:16,lineHeight:1.6}}>Your after-tax income sources — these add up to your monthly pool.</div>
+
+                  {/* Income sources list */}
+                  {(data.incomeSources||[]).length>0&&(
+                    <C style={{gap:6,marginBottom:14}}>
+                      {(data.incomeSources||[]).map(src=>(
+                        <R key={src.id} style={{justifyContent:"space-between",alignItems:"center",background:"#f8f7f2",borderRadius:12,padding:"10px 14px"}}>
+                          <C style={{gap:2}}>
+                            <span style={{fontSize:13,fontWeight:600,color:"#1a1a2e"}}>{src.label}</span>
+                            <span style={{fontSize:12,color:"#9e9b95"}}>{fmtFull(src.amount)}/mo</span>
+                          </C>
+                          <R style={{gap:8}}>
+                            <button className="rm" onClick={()=>{setNewIncSrc({label:src.label,amount:src.amount,id:src.id});setEditInc("src");}} style={{color:"#9e9b95"}}><I n="edit-2" s={13}/></button>
+                            <button className="rm" onClick={()=>{
+                              const srcs=(data.incomeSources||[]).filter(s=>s.id!==src.id);
+                              upd({incomeSources:srcs,monthlyIncome:srcs.reduce((s,x)=>s+x.amount,0)});
+                            }}><I n="x" s={13}/></button>
+                          </R>
+                        </R>
+                      ))}
+                    </C>
+                  )}
+
+                  {/* Total */}
+                  {(data.incomeSources||[]).length>0&&(
+                    <R style={{justifyContent:"space-between",alignItems:"baseline",marginBottom:14,paddingBottom:14,borderBottom:"1px solid #f0efe9"}}>
+                      <div style={{fontSize:36,fontWeight:300,letterSpacing:"-0.04em",color:"#1a1a2e"}}>{fmtFull(data.monthlyIncome)}</div>
+                      <div style={{fontSize:12,color:"#bbb9b0"}}>{fmtFull(myAllow)}/day</div>
                     </R>
+                  )}
+
+                  {/* Add / edit source form */}
+                  {editInc==="src"?(
+                    <C style={{gap:8}}>
+                      <input className="inp" placeholder="Source (e.g. Job, Freelance, Side hustle)" value={newIncSrc.label} onChange={e=>setNewIncSrc(p=>({...p,label:e.target.value}))}/>
+                      <R style={{gap:8}}>
+                        <input className="inp" type="number" placeholder="Amount/mo" value={newIncSrc.amount} onChange={e=>setNewIncSrc(p=>({...p,amount:e.target.value}))} style={{flex:1}}/>
+                        <button className="btn" onClick={()=>{
+                          if (!newIncSrc.label.trim()||!newIncSrc.amount) return;
+                          const amt = parseFloat(newIncSrc.amount)||0;
+                          let srcs;
+                          if (newIncSrc.id) {
+                            srcs=(data.incomeSources||[]).map(s=>s.id===newIncSrc.id?{...s,label:newIncSrc.label.trim(),amount:amt}:s);
+                          } else {
+                            srcs=[...(data.incomeSources||[]),{id:Date.now(),label:newIncSrc.label.trim(),amount:amt}];
+                          }
+                          upd({incomeSources:srcs,monthlyIncome:srcs.reduce((s,x)=>s+x.amount,0)});
+                          setNewIncSrc({label:"",amount:""});
+                          setEditInc(false);
+                        }}>Save</button>
+                        <button className="btn-ghost" onClick={()=>{setNewIncSrc({label:"",amount:""});setEditInc(false);}}>Cancel</button>
+                      </R>
+                    </C>
+                  ):(data.incomeSources||[]).length===0?(
+                    <C style={{gap:8}}>
+                      <div style={{fontSize:13,color:"#9e9b95",marginBottom:4}}>No income sources yet — add one to get started.</div>
+                      <R style={{gap:8}}>
+                        <input className="inp" placeholder="Source (e.g. Job, Freelance)" value={newIncSrc.label} onChange={e=>setNewIncSrc(p=>({...p,label:e.target.value}))} style={{flex:2}}/>
+                        <input className="inp" type="number" placeholder="$/mo" value={newIncSrc.amount} onChange={e=>setNewIncSrc(p=>({...p,amount:e.target.value}))} style={{flex:1}}/>
+                      </R>
+                      <button className="btn" style={{alignSelf:"flex-start"}} onClick={()=>{
+                        if (!newIncSrc.label.trim()||!newIncSrc.amount) return;
+                        const amt=parseFloat(newIncSrc.amount)||0;
+                        const srcs=[{id:Date.now(),label:newIncSrc.label.trim(),amount:amt}];
+                        upd({incomeSources:srcs,monthlyIncome:amt});
+                        setNewIncSrc({label:"",amount:""});
+                      }}>Add income source</button>
+                    </C>
                   ):(
-                    <R style={{justifyContent:"space-between",alignItems:"center"}}>
-                      <C>
-                        <div style={{fontSize:44,fontWeight:300,letterSpacing:"-0.05em",lineHeight:1}}>{fmtFull(data.monthlyIncome)}</div>
-                        <div style={{fontSize:12,color:"#bbb9b0",marginTop:6}}>{fmtFull(myAllow)}/day · {fmtFull(myAllow/24)}/hr</div>
-                      </C>
-                      <button className="btn-ghost" onClick={()=>{setIncStr(data.monthlyIncome);setEditInc(true);}}>Edit</button>
-                    </R>
+                    <button className="btn-ghost" style={{alignSelf:"flex-start",fontSize:13}} onClick={()=>setEditInc("src")}>
+                      + Add another source
+                    </button>
                   )}
                 </div>
               </div>
