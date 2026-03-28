@@ -2325,13 +2325,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       const isFut  = isCurrentMonth && d>now.getDate();
                       const saved=isPast&&dd.hasTx&&dd.net>0, ovr=isPast&&dd.hasTx&&dd.net<0;
                       const isSel=selDay===d;
-                      let bg="transparent",tc="#ccc9c0",bc="transparent";
+                      let bg="transparent",tc=dmText3,bc="transparent";
                       if (isTday)      {bg="#1a1a2e";tc="#fff";bc="#1a1a2e";}
-                      else if (isSel)  {bg="#f0efe9";tc="#1a1a2e";bc="#1a1a2e";}
-                      else if (saved)  {bg="#ebfbee";tc="#2f9e44";bc="#b2f2bb";}
-                      else if (ovr)    {bg="#fff5f5";tc="#e03131";bc="#ffc9c9";}
-                      else if (isPast) {bg="#f8f7f2";tc="#ccc9c0";bc="rgba(0,0,0,0.04)";}
-                      else if (isFut)  {bg="transparent";tc="#e0ddd4";bc="transparent";}
+                      else if (isSel)  {bg=dmSurface;tc=dmText;bc=dmText;}
+                      else if (saved)  {bg=darkMode?"rgba(47,158,68,0.18)":"#ebfbee";tc="#2f9e44";bc=darkMode?"rgba(47,158,68,0.3)":"#b2f2bb";}
+                      else if (ovr)    {bg=darkMode?"rgba(224,49,49,0.15)":"#fff5f5";tc="#e03131";bc=darkMode?"rgba(224,49,49,0.3)":"#ffc9c9";}
+                      else if (isPast) {bg=dmSurface;tc=dmText3;bc=darkMode?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.04)";}
+                      else if (isFut)  {bg="transparent";tc=darkMode?"#2a2a3e":"#e0ddd4";bc="transparent";}
                       const amt = Math.abs(dd.net);
                       const amtStr = amt>=1?`${saved?"+":"−"}$${Math.round(amt)}`:null;
                       return (
@@ -2361,12 +2361,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
                 {/* Selected day detail — full edit panel */}
                 {selDay&&(
-                  <div className="card" style={{padding:22,borderColor:selNet>=0?"#b2f2bb":"#ffc9c9",borderWidth:1.5}}>
+                  <div className="card" style={{padding:22,borderColor:selNet>=0?(darkMode?"rgba(47,158,68,0.4)":"#b2f2bb"):(darkMode?"rgba(224,49,49,0.4)":"#ffc9c9"),borderWidth:1.5}}>
                     {/* Header */}
                     <R style={{justifyContent:"space-between",marginBottom:14}}>
                       <C style={{gap:2}}>
                         <div style={{fontSize:15,fontWeight:700}}>
-                          {isTday?"Today":new Date(yr,mo,selDay).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}
+                          {(isCurrentMonth && selDay===now.getDate())?"Today":new Date(yr,mo,selDay).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}
                         </div>
                         <div style={{fontSize:12,color:dmText3}}>{selTx.length} transaction{selTx.length!==1?"s":""}</div>
                       </C>
@@ -2674,7 +2674,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         return (
                           <div key={day} style={{marginBottom:14}}>
                             <R style={{gap:10,marginBottom:8}}>
-                              <div style={{width:36,height:36,borderRadius:11,background:isToday?"#1a1a2e":isPast?"#f0efe9":"#f8f7f2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                              <div style={{width:36,height:36,borderRadius:11,background:isToday?"#1a1a2e":isPast?dm("#22222e","#f0efe9"):dm("#2a2a3e","#f8f7f2"),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                                 <span style={{fontSize:13,fontWeight:800,color:isToday?"#fff":isPast?dmText3:dmText}}>{day}</span>
                               </div>
                               <R style={{flex:1,justifyContent:"space-between",alignItems:"center"}}>
@@ -3102,7 +3102,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         return (
                           <div key={day} style={{marginBottom:14}}>
                             <R style={{gap:10,marginBottom:8}}>
-                              <div style={{width:36,height:36,borderRadius:11,background:isToday?"#1a1a2e":isPast?"#f0efe9":"#f8f7f2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                              <div style={{width:36,height:36,borderRadius:11,background:isToday?"#1a1a2e":isPast?dm("#22222e","#f0efe9"):dm("#2a2a3e","#f8f7f2"),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                                 <span style={{fontSize:13,fontWeight:800,color:isToday?"#fff":isPast?dmText3:dmText}}>{day}</span>
                               </div>
                               <R style={{flex:1,justifyContent:"space-between",alignItems:"center"}}>
