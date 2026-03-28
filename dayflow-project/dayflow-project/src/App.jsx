@@ -256,6 +256,7 @@ export default function App() {
   const [editMemberId,setEditMemberId] = useState(null);
   const [householdView,setHouseholdView] = useState("overview");
   const [chartView,setChartView]         = useState("daily");
+  const [viewMonth,setViewMonth]          = useState(() => { const n=new Date(); return {yr:n.getFullYear(),mo:n.getMonth()}; }); // {yr,mo} for history calendar
   const [menuOpen,setMenuOpen]           = useState(false);
   const [aiMessages,setAiMessages] = useState([]);
   const [aiInput,setAiInput]       = useState("");
@@ -600,7 +601,7 @@ export default function App() {
   };
 
   const allDayKeys  = new Set([...Object.keys(data.dailyEntries),...ptx.map(t=>t.date)]);
-  const historyDays = [...allDayKeys].sort((a,b)=>b.localeCompare(a)).slice(0,30);
+  const historyDays = [...allDayKeys].sort((a,b)=>b.localeCompare(a)); // all days, no cap
 
   // ── AI Advisor helpers ────────────────────────────────────────────────────
   const buildFinancialContext = () => {
@@ -1976,18 +1977,50 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
           {/* ══════ SPENDING / HISTORY ══════ */}
           {tab==="history" && (()=>{
-            const now=new Date(), yr=now.getFullYear(), mo=now.getMonth(), dim=DIM, todayDom=dayOfMonth(now);
-            const firstDow = new Date(yr,mo,1).getDay();
+            const now=new Date();
+            const yr=viewMonth.yr, mo=viewMonth.mo;
+            const isCurrentMonth = yr===now.getFullYear() && mo===now.getMonth();
+            const viewDate = new Date(yr, mo, 1);
+            const dim = new Date(yr, mo+1, 0).getDate();
+            const todayDom = isCurrentMonth ? now.getDate() : dim;
+            const firstDow = viewDate.getDay();
+
+            // Month nav helpers
+            const goToPrevMonth = () => {
+              setViewMonth(p => {
+                const d = new Date(p.yr, p.mo-1, 1);
+                return {yr: d.getFullYear(), mo: d.getMonth()};
+              });
+              setSelDay(null);
+            };
+            const goToNextMonth = () => {
+              if (isCurrentMonth) return; // can't go past current
+              setViewMonth(p => {
+                const d = new Date(p.yr, p.mo+1, 1);
+                return {yr: d.getFullYear(), mo: d.getMonth()};
+              });
+              setSelDay(null);
+            };
+
+            // Income for viewed month (use historical if available, else current)
+            const moPrefix = `${yr}-${String(mo+1).padStart(2,"0")}`;
+            const monthIncome = (data.monthlyIncomes||{})[moPrefix] ?? data.monthlyIncome;
+            const monthBills  = totalBills(data.recurringPayments);
+            const monthPool   = monthIncome - monthBills;
+            const monthAllow  = monthPool / dim;
+
             const dayData = {};
             for (let d=1;d<=dim;d++){
               const key=`${yr}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
               const e=data.dailyEntries[key]||{transactions:[]};
               const spent = calcDaySpent(e, ptx, key);
               const hasTx = spent>0||(e.transactions||[]).length>0;
-              dayData[d]  = {spent,net:myAllow-spent,hasTx,key};
+              dayData[d]  = {spent,net:monthAllow-spent,hasTx,key};
             }
-            const savedDays  = Object.values(dayData).filter(d=>d.hasTx&&d.net>0&&d.key<=TODAY).length;
-            const totalSaved = Object.values(dayData).filter(d=>d.hasTx&&d.net>0&&d.key<=TODAY).reduce((s,d)=>s+d.net,0);
+            const viewMonthSpent = Object.values(dayData).reduce((s,d) => s + d.spent, 0);
+            const viewPoolLeft   = monthPool - viewMonthSpent;
+            const savedDays  = Object.values(dayData).filter(d=>d.hasTx&&d.net>0).length;
+            const totalSaved = Object.values(dayData).filter(d=>d.hasTx&&d.net>0).reduce((s,d)=>s+d.net,0);
             const selKey   = selDay ? dayData[selDay]?.key : null;
             const selEntry = selKey ? (data.dailyEntries[selKey]||{transactions:[]}) : null;
             const selPlaid = selKey ? ptx.filter(t=>t.date===selKey) : [];
@@ -1995,14 +2028,37 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
             const selSpent = selDay  ? dayData[selDay].spent : 0;
             const selNet   = selDay  ? dayData[selDay].net   : 0;
             const DOW = ["Su","Mo","Tu","We","Th","Fr","Sa"];
-            const moPrefix = `${yr}-${String(mo+1).padStart(2,"0")}`;
 
             return (
               <C style={{gap:16}}>
+
+                {/* Month navigation header */}
+                <R style={{justifyContent:"space-between",alignItems:"center"}}>
+                  <button onClick={goToPrevMonth}
+                    style={{background:"#fff",border:"1px solid #e8e5dc",borderRadius:12,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",color:"#1a1a2e"}}>
+                    ← 
+                  </button>
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:16,fontWeight:800,color:"#1a1a2e"}}>
+                      {viewDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}
+                    </div>
+                    {!isCurrentMonth && (
+                      <button onClick={()=>{setViewMonth({yr:now.getFullYear(),mo:now.getMonth()});setSelDay(null);}}
+                        style={{background:"none",border:"none",fontSize:11,color:"#7048e8",fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginTop:2}}>
+                        Back to today
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={goToNextMonth}
+                    style={{background:"#fff",border:"1px solid #e8e5dc",borderRadius:12,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",color:isCurrentMonth?"#e0ddd4":"#1a1a2e",pointerEvents:isCurrentMonth?"none":"auto"}}>
+                    →
+                  </button>
+                </R>
+
                 {/* Summary */}
                 <div className="card" style={{padding:24}}>
                   <R style={{gap:0,marginBottom:18}}>
-                    {[{l:"Pool",v:myPoolReal,c:"#1a1a2e"},{l:"Spent",v:monthSpent,c:"#e03131"},{l:"Left",v:poolLeft,c:poolLeft>=0?"#2f9e44":"#e03131"}].map(({l,v,c},i)=>(
+                    {[{l:"Pool",v:monthPool,c:"#1a1a2e"},{l:"Spent",v:viewMonthSpent,c:"#e03131"},{l:"Left",v:viewPoolLeft,c:viewPoolLeft>=0?"#2f9e44":"#e03131"}].map(({l,v,c},i)=>(
                       <C key={l} style={{flex:1,paddingLeft:i>0?16:0,paddingRight:i<2?16:0,borderRight:i<2?"1px solid #f0efe9":"none",gap:3}}>
                         <div style={{fontSize:11,color:"#bbb9b0",fontWeight:700}}>{l}</div>
                         <div style={{fontSize:24,fontWeight:300,color:c,letterSpacing:"-0.03em"}}>{fmt(v)}</div>
@@ -2010,19 +2066,23 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     ))}
                   </R>
                   <div className="prog-track">
-                    <div className="prog-fill" style={{width:`${Math.min(100,myPoolReal>0?(monthSpent/myPoolReal)*100:0)}%`,background:poolLeft<0?"#e03131":"#1a1a2e"}}/>
+                    <div className="prog-fill" style={{width:`${Math.min(100,monthPool>0?(viewMonthSpent/monthPool)*100:0)}%`,background:viewPoolLeft<0?"#e03131":"#1a1a2e"}}/>
                   </div>
                   <R style={{justifyContent:"space-between",marginTop:6}}>
-                    <span style={{fontSize:11,color:"#bbb9b0"}}>Day {dayOfMonth()}</span>
-                    <span style={{fontSize:11,color:"#bbb9b0"}}>{Math.round(myPoolReal>0?(monthSpent/myPoolReal)*100:0)}% used</span>
-                    <span style={{fontSize:11,color:"#bbb9b0"}}>Day {DIM}</span>
+                    <span style={{fontSize:11,color:"#bbb9b0"}}>Day 1</span>
+                    <span style={{fontSize:11,color:"#bbb9b0"}}>{Math.round(monthPool>0?(viewMonthSpent/monthPool)*100:0)}% used</span>
+                    <span style={{fontSize:11,color:"#bbb9b0"}}>Day {dim}</span>
                   </R>
+                  {!isCurrentMonth && monthIncome !== data.monthlyIncome && (
+                    <div style={{fontSize:11,color:"#bbb9b0",marginTop:10,fontStyle:"italic",borderTop:"1px solid #f0efe9",paddingTop:8}}>
+                      Using recorded income of {fmtFull(monthIncome)}/mo for {viewDate.toLocaleDateString("en-US",{month:"long"})}
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Spending flow chart ── */}
                 {(()=>{
-                  // Build chart data — one entry per day of month so far
-                  let runningPool = myPoolReal;
+                  let runningPool = monthPool;
                   const chartData = Array.from({length:todayDom}, (_,i)=>{
                     const d   = i+1;
                     const dd  = dayData[d];
@@ -2032,9 +2092,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       day:    d,
                       label:  `${d}`,
                       spent:  parseFloat(spent.toFixed(2)),
-                      allow:  parseFloat(myAllow.toFixed(2)),
-                      pool:   parseFloat(Math.max(0, runningPool + spent).toFixed(2)), // pool at START of day
-                      over:   spent > myAllow,
+                      allow:  parseFloat(monthAllow.toFixed(2)),
+                      pool:   parseFloat(Math.max(0, runningPool + spent).toFixed(2)),
+                      over:   spent > monthAllow,
                     };
                   });
 
@@ -2073,7 +2133,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                           <div className="sec-hd" style={{marginBottom:0}}>Spending flow</div>
                           {avgSpend>0&&(
                             <div style={{fontSize:12,color:"#9e9b95"}}>
-                              avg {fmtFull(avgSpend)}/day · allowance {fmtFull(myAllow)}/day
+                              avg {fmtFull(avgSpend)}/day · allowance {fmtFull(monthAllow)}/day
                             </div>
                           )}
                         </C>
@@ -2099,12 +2159,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               <YAxis tick={{fontSize:10,fill:"#bbb9b0",fontFamily:"Plus Jakarta Sans"}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v}`}/>
                               <Tooltip content={<ChartTip/>}/>
                               {/* Allowance reference line */}
-                              <ReferenceLine y={myAllow} stroke="#1a1a2e" strokeDasharray="4 4" strokeWidth={1.5} strokeOpacity={0.4}/>
+                              <ReferenceLine y={monthAllow} stroke="#1a1a2e" strokeDasharray="4 4" strokeWidth={1.5} strokeOpacity={0.4}/>
                               {/* Spending bars — green under, red over */}
                               <Bar dataKey="spent" radius={[5,5,0,0]} maxBarSize={28}>
                                 {chartData.map((entry,i)=>(
-                                  <Cell key={i} fill={entry.over?"#fca5a5":entry.spent>myAllow*0.8?"#fcd34d":"#86efac"}
-                                    stroke={entry.over?"#e03131":entry.spent>myAllow*0.8?"#f59e0b":"#2f9e44"}
+                                  <Cell key={i} fill={entry.over?"#fca5a5":entry.spent>monthAllow*0.8?"#fcd34d":"#86efac"}
+                                    stroke={entry.over?"#e03131":entry.spent>monthAllow*0.8?"#f59e0b":"#2f9e44"}
                                     strokeWidth={1}/>
                                 ))}
                               </Bar>
@@ -2135,23 +2195,23 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       {/* POOL VIEW — area chart of remaining pool draining over month */}
                       {chartView==="pool"&&(()=>{
                         // Rebuild with cumulative pool drain
-                        let pool = myPoolReal;
+                        let pool = monthPool;
                         const poolData = Array.from({length:todayDom}, (_,i)=>{
                           const d     = i+1;
                           const spent = dayData[d]?.spent ?? 0;
                           pool       -= spent;
-                          const pct   = myPoolReal > 0 ? (pool / myPoolReal) * 100 : 0;
+                          const pct   = monthPool > 0 ? (pool / monthPool) * 100 : 0;
                           return { day:d, label:`${d}`, pool:parseFloat(pool.toFixed(2)), pct:parseFloat(pct.toFixed(1)) };
                         });
                         // Project ideal drain (spending exactly allowance each day)
-                        const idealData = Array.from({length:DIM}, (_,i)=>({
-                          day:i+1, label:`${i+1}`, ideal: parseFloat((myPoolReal - myAllow*(i+1)).toFixed(2))
+                        const idealData = Array.from({length:dim}, (_,i)=>({
+                          day:i+1, label:`${i+1}`, ideal: parseFloat((monthPool - monthAllow*(i+1)).toFixed(2))
                         }));
 
                         const PoolTip = ({active,payload,label})=>{
                           if(!active||!payload?.length) return null;
                           const pool = payload.find(p=>p.dataKey==="pool")?.value??0;
-                          const pct  = myPoolReal>0?(pool/myPoolReal*100):0;
+                          const pct  = monthPool>0?(pool/monthPool*100):0;
                           return (
                             <div style={{background:"#fff",border:"1px solid #f0efe9",borderRadius:12,padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}>
                               <div style={{fontSize:12,fontWeight:700,color:"#1a1a2e",marginBottom:6}}>Day {label}</div>
@@ -2166,7 +2226,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                             <ResponsiveContainer width="100%" height={200}>
                               <ComposedChart margin={{top:4,right:4,left:-20,bottom:0}}>
                                 <CartesianGrid vertical={false} stroke="#f4f4f2"/>
-                                <XAxis dataKey="label" tick={{fontSize:10,fill:"#bbb9b0",fontFamily:"Plus Jakarta Sans"}} axisLine={false} tickLine={false} interval={Math.floor(DIM/6)}/>
+                                <XAxis dataKey="label" tick={{fontSize:10,fill:"#bbb9b0",fontFamily:"Plus Jakarta Sans"}} axisLine={false} tickLine={false} interval={Math.floor(dim/6)}/>
                                 <YAxis tick={{fontSize:10,fill:"#bbb9b0",fontFamily:"Plus Jakarta Sans"}} axisLine={false} tickLine={false} tickFormatter={v=>`$${Math.round(v)}`}/>
                                 <Tooltip content={<PoolTip/>}/>
                                 {/* Ideal drain line */}
@@ -2201,7 +2261,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div className="card" style={{padding:22}}>
                   <R style={{justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
                     <C style={{gap:3}}>
-                      <div className="sec-hd" style={{marginBottom:0}}>{now.toLocaleDateString("en-US",{month:"long",year:"numeric"})}</div>
+                      <div className="sec-hd" style={{marginBottom:0}}>{viewDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}</div>
                       {savedDays>0&&<div style={{fontSize:12,fontWeight:600,color:"#2f9e44"}}>{savedDays} days under budget · {fmtFull(totalSaved)} saved</div>}
                     </C>
                     {selDay&&<button onClick={()=>setSelDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb9b0",fontSize:12,fontFamily:"inherit",fontWeight:600}}>Clear ×</button>}
@@ -2217,7 +2277,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     {Array.from({length:firstDow}).map((_,i)=><div key={`e${i}`}/>)}
                     {Array.from({length:dim}).map((_,i)=>{
                       const d=i+1, dd=dayData[d];
-                      const isPast=d<todayDom, isTday=d===todayDom, isFut=d>todayDom;
+                      const realToday = isCurrentMonth && d===now.getDate();
+                      const isPast = isCurrentMonth ? d<now.getDate() : true; // all days in past months are past
+                      const isTday = realToday;
+                      const isFut  = isCurrentMonth && d>now.getDate();
                       const saved=isPast&&dd.hasTx&&dd.net>0, ovr=isPast&&dd.hasTx&&dd.net<0;
                       const isSel=selDay===d;
                       let bg="transparent",tc="#ccc9c0",bc="transparent";
@@ -2262,7 +2325,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     <R style={{justifyContent:"space-between",marginBottom:14}}>
                       <C style={{gap:2}}>
                         <div style={{fontSize:15,fontWeight:700}}>
-                          {selDay===todayDom?"Today":new Date(yr,mo,selDay).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}
+                          {isTday?"Today":new Date(yr,mo,selDay).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}
                         </div>
                         <div style={{fontSize:12,color:"#bbb9b0"}}>{selTx.length} transaction{selTx.length!==1?"s":""}</div>
                       </C>
@@ -2270,13 +2333,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         <div style={{fontSize:18,fontWeight:800,color:selNet>=0?"#2f9e44":"#e03131"}}>
                           {selNet>=0?"+":"−"}{fmtFull(Math.abs(selNet))}
                         </div>
-                        <div style={{fontSize:11,color:"#bbb9b0"}}>vs {fmtFull(myAllow)} allowance</div>
+                        <div style={{fontSize:11,color:"#bbb9b0"}}>vs {fmtFull(monthAllow)} allowance</div>
                       </C>
                     </R>
 
                     {/* Progress bar */}
                     <div className="prog-track" style={{marginBottom:16}}>
-                      <div className="prog-fill" style={{width:`${Math.min(100,myAllow>0?(selSpent/myAllow)*100:0)}%`,background:selNet<0?"#e03131":selSpent/myAllow>0.8?"#f08c00":"#2f9e44"}}/>
+                      <div className="prog-fill" style={{width:`${Math.min(100,monthAllow>0?(selSpent/monthAllow)*100:0)}%`,background:selNet<0?"#e03131":selSpent/monthAllow>0.8?"#f08c00":"#2f9e44"}}/>
                     </div>
 
                     {/* Transaction list */}
@@ -2349,11 +2412,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   const de=data.dailyEntries[dateKey]||{transactions:[]};
                   const pd=ptx.filter(t=>t.date===dateKey);
                   const ds=calcDaySpent(de,ptx,dateKey);
-                  const nt=myAllow-ds;
+                  const nt=monthAllow-ds;
                   const ax=[...(de.transactions||[]),...pd];
-                  const isTday=dateKey===TODAY;
+                  const isTday=isCurrentMonth && dateKey===TODAY;
                   if (ax.length===0&&!isTday) return null;
-                  const pct=myAllow>0?Math.min(1,ds/myAllow):0;
+                  const pct=monthAllow>0?Math.min(1,ds/monthAllow):0;
                   return (
                     <div key={dateKey} className="card" style={{padding:20,opacity:isTday?1:0.88}}>
                       <R style={{justifyContent:"space-between",marginBottom:12}}>
