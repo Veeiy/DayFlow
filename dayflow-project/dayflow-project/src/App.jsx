@@ -1646,7 +1646,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div style={{background:"#f3eeff",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #d8d0ff"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#7048e8",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Ask it things like</div>
                   {["How does a Roth IRA work?","Am I saving enough each month?","What's the difference between HSA and FSA?","How can I pay off debt faster?","Should I invest or build my emergency fund first?"].map(q=>(
-                    <div key={q} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #ede6ff"}}>
+                    <div key={q} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:`1px solid ${darkMode?"rgba(100,80,200,0.3)":"#ede6ff"}`}}>
                       <span style={{color:"#7048e8",fontSize:13,flexShrink:0}}>→</span>
                       <span style={{fontSize:13,color:dmText}}>{q}</span>
                     </div>
@@ -2990,7 +2990,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               {(m.recurringPayments||[]).map(r=>{
                                 const cat = CAT_MAP[r.category||"other"]||CAT_MAP.other;
                                 return (
-                                  <R key={r.id} style={{justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f8f7f2"}}>
+                                  <R key={r.id} style={{justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${dmBorder2}`}}>
                                     <R style={{gap:8}}>
                                       <div style={{width:24,height:24,borderRadius:7,background:darkMode?"rgba(255,255,255,0.08)":cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
                                         <I n={cat.icon} s={12} c={cat.fg}/>
