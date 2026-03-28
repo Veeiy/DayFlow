@@ -154,7 +154,6 @@ function LearnSection({section, onAsk}) {
         </div>
       ))}
     </div>
-    </>
   );
 }
 
@@ -1161,7 +1160,57 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
   // ── Auth loading / Splash overlay handled in main return below ──
 
   // ── Auth screen ─────────────────────────────────────────────────────────────
-  if (!user && !guestMode && !authLoading) return (
+  // ── Splash screen ────────────────────────────────────────────────────────────
+  if (showSplash) return (
+    <div style={{minHeight:"100vh",background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",overflow:"hidden"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        @keyframes splashFadeIn { 0%{opacity:0} 100%{opacity:1} }
+        @keyframes splashScaleIn { 0%{transform:scale(0.62) translateY(16px);opacity:0} 55%{transform:scale(1.03) translateY(-3px);opacity:1} 100%{transform:scale(1) translateY(0);opacity:1} }
+        @keyframes waveDrawSlow { 0%{stroke-dashoffset:300;opacity:0} 6%{opacity:1} 100%{stroke-dashoffset:0;opacity:1} }
+        @keyframes ghostDrawSlow { 0%{stroke-dashoffset:340;opacity:0} 10%{opacity:1} 100%{stroke-dashoffset:0;opacity:1} }
+        @keyframes splashExit { 0%{opacity:1} 100%{opacity:0} }
+        @keyframes ballPulse { 0%,100%{r:8;opacity:1} 50%{r:11;opacity:0.8} }
+        @keyframes wordmarkIn { 0%{opacity:0;transform:translateY(20px);filter:blur(4px)} 100%{opacity:1;transform:translateY(0);filter:blur(0)} }
+        @keyframes underlineGrow { 0%{transform:scaleX(0);opacity:0} 60%{opacity:1} 100%{transform:scaleX(1);opacity:1} }
+        @keyframes taglineIn { 0%{opacity:0;transform:translateY(12px)} 100%{opacity:1;transform:translateY(0)} }
+        .splash-ball-pulse { animation: ballPulse 2s ease-in-out 3.5s infinite; }
+        .splash-exit { animation: splashExit 2s ease 4.2s both; }
+      `}</style>
+      <div className="splash-exit" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:40,animation:"splashFadeIn 0.8s ease both"}}>
+        <div style={{animation:"splashScaleIn 1.8s cubic-bezier(0.34,1.05,0.64,1) 0.1s both"}}>
+          <svg width="220" height="100" viewBox="0 0 220 100" fill="none">
+            <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50 Q192 88 215 50"
+              stroke="#d4d0c8" strokeWidth="2" strokeLinecap="round" fill="none"
+              strokeDasharray="360" strokeDashoffset="360"
+              style={{animation:"ghostDrawSlow 3.2s cubic-bezier(0.4,0,0.2,1) 0.4s forwards"}}/>
+            <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"
+              stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round" fill="none"
+              strokeDasharray="320" strokeDashoffset="320"
+              style={{animation:"waveDrawSlow 2.8s cubic-bezier(0.25,0.46,0.45,0.94) 0.5s forwards"}}/>
+            <circle r="8" fill="#2f9e44" className="splash-ball-pulse">
+              <animateMotion dur="2.8s" begin="0.5s" fill="freeze"
+                calcMode="spline" keyPoints="0;1" keyTimes="0;1"
+                keySplines="0.25 0.46 0.45 0.94"
+                path="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"/>
+            </circle>
+          </svg>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
+          <div style={{fontSize:56,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.05em",lineHeight:1,animation:"wordmarkIn 1.2s cubic-bezier(0.22,1,0.36,1) 0.8s both"}}>
+            day<span style={{fontWeight:300,color:"#6b6864"}}>flow</span>
+          </div>
+          <div style={{width:44,height:2,borderRadius:2,background:"#2f9e44",transformOrigin:"center",animation:"underlineGrow 1.0s cubic-bezier(0.4,0,0.2,1) 1.8s both"}}/>
+        </div>
+        <div style={{fontSize:15,fontWeight:400,color:"#9e9b95",letterSpacing:"0.03em",animation:"taglineIn 1.2s cubic-bezier(0.22,1,0.36,1) 1.4s both"}}>
+          Take your spending day by day
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Auth screen ─────────────────────────────────────────────────────────────
+  if (!user && !guestMode) return (
     <div style={{minHeight:"100vh",background:"#f0efe9",fontFamily:"'Plus Jakarta Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
@@ -1241,54 +1290,6 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
   );
 
   return (
-    <>
-      {showSplash && (
-        <div style={{position:"fixed",inset:0,background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",overflow:"hidden",zIndex:99999}}>
-          <style>{`
-            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-            @keyframes splashFadeIn { 0% { opacity:0 } 100% { opacity:1 } }
-            @keyframes splashScaleIn { 0% { transform:scale(0.62) translateY(16px);opacity:0 } 55% { transform:scale(1.03) translateY(-3px);opacity:1 } 100% { transform:scale(1) translateY(0);opacity:1 } }
-            @keyframes waveDrawSlow { 0% { stroke-dashoffset:300;opacity:0 } 6% { opacity:1 } 100% { stroke-dashoffset:0;opacity:1 } }
-            @keyframes ghostDrawSlow { 0% { stroke-dashoffset:340;opacity:0 } 10% { opacity:1 } 100% { stroke-dashoffset:0;opacity:1 } }
-            @keyframes splashExit { 0% { opacity:1 } 100% { opacity:0 } }
-            @keyframes ballPulse { 0%,100% { r:8;opacity:1 } 50% { r:11;opacity:0.8 } }
-            @keyframes wordmarkIn { 0% { opacity:0;transform:translateY(20px);filter:blur(4px) } 100% { opacity:1;transform:translateY(0);filter:blur(0) } }
-            @keyframes underlineGrow { 0% { transform:scaleX(0);opacity:0 } 60% { opacity:1 } 100% { transform:scaleX(1);opacity:1 } }
-            @keyframes taglineIn { 0% { opacity:0;transform:translateY(12px) } 100% { opacity:1;transform:translateY(0) } }
-            .splash-ball-pulse { animation: ballPulse 2s ease-in-out 3.5s infinite; }
-            .splash-exit { animation: splashExit 2s ease 4.2s both; }
-          `}</style>
-          <div className="splash-exit" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:40,animation:"splashFadeIn 0.8s ease both"}}>
-            <div style={{animation:"splashScaleIn 1.8s cubic-bezier(0.34,1.05,0.64,1) 0.1s both"}}>
-              <svg width="220" height="100" viewBox="0 0 220 100" fill="none">
-                <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50 Q192 88 215 50"
-                  stroke="#d4d0c8" strokeWidth="2" strokeLinecap="round" fill="none"
-                  strokeDasharray="360" strokeDashoffset="360"
-                  style={{animation:"ghostDrawSlow 3.2s cubic-bezier(0.4,0,0.2,1) 0.4s forwards"}}/>
-                <path d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"
-                  stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round" fill="none"
-                  strokeDasharray="320" strokeDashoffset="320"
-                  style={{animation:"waveDrawSlow 2.8s cubic-bezier(0.25,0.46,0.45,0.94) 0.5s forwards"}}/>
-                <circle r="8" fill="#2f9e44" className="splash-ball-pulse">
-                  <animateMotion dur="2.8s" begin="0.5s" fill="freeze"
-                    calcMode="spline" keyPoints="0;1" keyTimes="0;1"
-                    keySplines="0.25 0.46 0.45 0.94"
-                    path="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"/>
-                </circle>
-              </svg>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
-              <div style={{fontSize:56,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.05em",lineHeight:1,animation:"wordmarkIn 1.2s cubic-bezier(0.22,1,0.36,1) 0.8s both"}}>
-                day<span style={{fontWeight:300,color:"#6b6864"}}>flow</span>
-              </div>
-              <div style={{width:44,height:2,borderRadius:2,background:"#2f9e44",transformOrigin:"center",animation:"underlineGrow 1.0s cubic-bezier(0.4,0,0.2,1) 1.8s both"}}/>
-            </div>
-            <div style={{fontSize:15,fontWeight:400,color:"#9e9b95",letterSpacing:"0.03em",animation:"taglineIn 1.2s cubic-bezier(0.22,1,0.36,1) 1.4s both"}}>
-              Take your spending day by day
-            </div>
-          </div>
-        </div>
-      )}
       <div style={{minHeight:"100vh",background:"#f0efe9",fontFamily:"'Plus Jakarta Sans','Outfit',sans-serif",color:"#1a1a2e"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
@@ -3455,6 +3456,5 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         )}
       </div>
     </div>
-    </>
   );
 }
