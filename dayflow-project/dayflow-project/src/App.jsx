@@ -64,13 +64,13 @@ const renderMd = (text) => {
     const line = lines[i];
     // H2 heading
     if (line.startsWith("## ")) {
-      elements.push(<div key={i} style={{fontSize:15,fontWeight:800,color:"#1a1a2e",marginTop:14,marginBottom:4}}>{renderInline(line.slice(3))}</div>);
+      elements.push(<div key={i} style={{fontSize:15,fontWeight:800,color:dmText,marginTop:14,marginBottom:4}}>{renderInline(line.slice(3))}</div>);
     // H3 heading
     } else if (line.startsWith("### ")) {
-      elements.push(<div key={i} style={{fontSize:13,fontWeight:700,color:"#1a1a2e",marginTop:10,marginBottom:2}}>{renderInline(line.slice(4))}</div>);
+      elements.push(<div key={i} style={{fontSize:13,fontWeight:700,color:dmText,marginTop:10,marginBottom:2}}>{renderInline(line.slice(4))}</div>);
     // H1 heading
     } else if (line.startsWith("# ")) {
-      elements.push(<div key={i} style={{fontSize:17,fontWeight:800,color:"#1a1a2e",marginTop:16,marginBottom:6}}>{renderInline(line.slice(2))}</div>);
+      elements.push(<div key={i} style={{fontSize:17,fontWeight:800,color:dmText,marginTop:16,marginBottom:6}}>{renderInline(line.slice(2))}</div>);
     // Horizontal rule
     } else if (line.trim() === "---" || line.trim() === "***") {
       elements.push(<div key={i} style={{height:1,background:"#ece9e0",margin:"10px 0"}}/>);
@@ -134,14 +134,14 @@ function LearnSection({section, onAsk}) {
   const [open, setOpen] = useState(null);
   return (
     <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:24,boxShadow:"0 2px 0px rgba(0,0,0,0.04),0 8px 32px rgba(0,0,0,0.07)",border:"1px solid rgba(255,255,255,0.8)",overflow:"hidden"}}>
-      <div style={{padding:"18px 20px 14px",borderBottom:"1px solid #f0efe9",display:"flex",alignItems:"center",gap:12}}>
+      <div style={{padding:"18px 20px 14px",borderBottom:`1px solid ${dmBorder2}`,display:"flex",alignItems:"center",gap:12}}>
         <div style={{width:40,height:40,borderRadius:13,background:`${section.color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{section.emoji}</div>
-        <div style={{fontSize:16,fontWeight:800,color:"#1a1a2e"}}>{section.title}</div>
+        <div style={{fontSize:16,fontWeight:800,color:dmText}}>{section.title}</div>
       </div>
       {section.lessons.map((lesson,i)=>(
         <div key={i} style={{borderBottom:i<section.lessons.length-1?"1px solid #f8f7f2":"none"}}>
           <button onClick={()=>setOpen(open===i?null:i)} style={{width:"100%",padding:"14px 20px",background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,fontFamily:"inherit",textAlign:"left"}}>
-            <span style={{fontSize:13,fontWeight:600,color:"#1a1a2e",lineHeight:1.4}}>{lesson.q}</span>
+            <span style={{fontSize:13,fontWeight:600,color:dmText,lineHeight:1.4}}>{lesson.q}</span>
             <span style={{fontSize:18,color:section.color,flexShrink:0,transition:"transform 0.2s",display:"inline-block",transform:open===i?"rotate(45deg)":"rotate(0deg)"}}>+</span>
           </button>
           {open===i&&(
@@ -554,6 +554,17 @@ export default function App() {
   const TODAY      = todayKey();
   const activeData = (guestMode && !user) ? GUEST_DATA : data;
   const entry      = activeData.dailyEntries[TODAY]||{transactions:[]};
+
+  // Dark mode helpers — dm(dark, light)
+  const dm = (d, l) => darkMode ? d : l;
+  const dmSurface  = darkMode ? "#22222e" : "#f8f7f2";
+  const dmSurface2 = darkMode ? "#1c1c26" : "#ffffff";
+  const dmBg       = darkMode ? "#0f0f14" : "#f0efe9";
+  const dmText     = darkMode ? "#e8e6e0" : "#1a1a2e";
+  const dmText2    = darkMode ? "#8a8898" : "#9e9b95";
+  const dmText3    = darkMode ? "#5a5a72" : "#bbb9b0";
+  const dmBorder   = darkMode ? "rgba(255,255,255,0.08)" : "#e8e5dc";
+  const dmBorder2  = darkMode ? "rgba(255,255,255,0.05)" : "#f0efe9";
 
   // Household-aware totals — combine owner + all members
   const allMembers   = activeData.householdMode ? activeData.members : [];
@@ -1196,7 +1207,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
   // ── Auth screen ─────────────────────────────────────────────────────────────
   // ── Splash screen ────────────────────────────────────────────────────────────
   if (showSplash) return (
-    <div style={{minHeight:"100vh",background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",overflow:"hidden"}}>
+    <div style={{minHeight:"100vh",background:dm("#22222e","#f0efe9"),display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",overflow:"hidden"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         @keyframes splashFadeIn { 0%{opacity:0} 100%{opacity:1} }
@@ -1234,12 +1245,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           </svg>
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
-          <div style={{fontSize:56,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.05em",lineHeight:1,animation:"wordmarkIn 1.2s cubic-bezier(0.22,1,0.36,1) 0.8s both"}}>
+          <div style={{fontSize:56,fontWeight:800,color:dmText,letterSpacing:"-0.05em",lineHeight:1,animation:"wordmarkIn 1.2s cubic-bezier(0.22,1,0.36,1) 0.8s both"}}>
             day<span style={{fontWeight:300,color:"#6b6864"}}>flow</span>
           </div>
           <div style={{width:44,height:2,borderRadius:2,background:"#2f9e44",transformOrigin:"center",animation:"underlineGrow 1.0s cubic-bezier(0.4,0,0.2,1) 1.8s both"}}/>
         </div>
-        <div style={{fontSize:15,fontWeight:400,color:"#9e9b95",letterSpacing:"0.03em",animation:"taglineIn 1.2s cubic-bezier(0.22,1,0.36,1) 1.4s both"}}>
+        <div style={{fontSize:15,fontWeight:400,color:dmText2,letterSpacing:"0.03em",animation:"taglineIn 1.2s cubic-bezier(0.22,1,0.36,1) 1.4s both"}}>
           Take your spending day by day
         </div>
       </div>
@@ -1248,7 +1259,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
   // ── Auth screen ─────────────────────────────────────────────────────────────
   if (!user && !guestMode) return (
-    <div style={{minHeight:"100vh",background:"#f0efe9",fontFamily:"'Plus Jakarta Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+    <div style={{minHeight:"100vh",background:dm("#22222e","#f0efe9"),fontFamily:"'Plus Jakarta Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
@@ -1269,10 +1280,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
             <path d="M7 28 Q14 14 21 28 Q28 42 35 28" stroke="#fff" strokeWidth="3" strokeLinecap="round" fill="none"/>
             <circle cx="35" cy="28" r="5" fill="#2f9e44"/>
           </svg>
-          <div style={{fontSize:28,fontWeight:800,letterSpacing:"-0.04em",color:"#1a1a2e"}}>
+          <div style={{fontSize:28,fontWeight:800,letterSpacing:"-0.04em",color:dmText}}>
             day<span style={{fontWeight:300,color:"#6b6864"}}>flow</span>
           </div>
-          <div style={{fontSize:14,color:"#9e9b95",marginTop:6}}>
+          <div style={{fontSize:14,color:dmText2,marginTop:6}}>
             {authScreen==="login"?"Welcome back":"Create your account"}
           </div>
         </div>
@@ -1293,9 +1304,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 Continue with Google
               </button>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <div style={{flex:1,height:1,background:"#f0efe9"}}/>
-                <span style={{fontSize:12,color:"#bbb9b0",fontWeight:500}}>or</span>
-                <div style={{flex:1,height:1,background:"#f0efe9"}}/>
+                <div style={{flex:1,height:1,background:dm("#22222e","#f0efe9")}}/>
+                <span style={{fontSize:12,color:dmText3,fontWeight:500}}>or</span>
+                <div style={{flex:1,height:1,background:dm("#22222e","#f0efe9")}}/>
               </div>
               <input className="auth-inp" type="email" placeholder="Email address" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(authScreen==="login"?signInEmail():signUpEmail())}/>
               <input className="auth-inp" type="password" placeholder="Password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(authScreen==="login"?signInEmail():signUpEmail())}/>
@@ -1316,10 +1327,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
             </div>
           )}
         </div>
-        <button onClick={()=>setGuestMode(true)} style={{marginTop:16,width:"100%",background:"transparent",border:"1.5px solid #e0ddd4",borderRadius:16,padding:"13px",fontSize:14,fontWeight:600,color:"#9e9b95",cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+        <button onClick={()=>setGuestMode(true)} style={{marginTop:16,width:"100%",background:"transparent",border:"1.5px solid #e0ddd4",borderRadius:16,padding:"13px",fontSize:14,fontWeight:600,color:dmText2,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
           Explore without an account →
         </button>
-        <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"#bbb9b0",lineHeight:1.6}}>
+        <div style={{textAlign:"center",marginTop:14,fontSize:12,color:dmText3,lineHeight:1.6}}>
           By continuing you agree to our Terms of Service and Privacy Policy
         </div>
       </div>
@@ -1471,19 +1482,19 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 24px"}}/>
               <div style={{fontSize:32,textAlign:"center",marginBottom:12}}>🔒</div>
               <div style={{fontSize:20,fontWeight:800,textAlign:"center",marginBottom:8}}>Create a free account</div>
-              <div style={{fontSize:14,color:"#9e9b95",textAlign:"center",lineHeight:1.6,marginBottom:24}}>{showGate}</div>
+              <div style={{fontSize:14,color:dmText2,textAlign:"center",lineHeight:1.6,marginBottom:24}}>{showGate}</div>
               <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:16,padding:16,marginBottom:20,border:"1px solid #ece9e0"}}>
                 {[["💾","Your data saves across devices"],["📊","Full spending history & insights"],["🤖","Personalized AI Advisor"],["🔄","Sync income, bills & budget"]].map(([icon,text])=>(
                   <div key={text} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0"}}>
                     <span style={{fontSize:16}}>{icon}</span>
-                    <span style={{fontSize:13,fontWeight:500,color:"#1a1a2e"}}>{text}</span>
+                    <span style={{fontSize:13,fontWeight:500,color:dmText}}>{text}</span>
                   </div>
                 ))}
               </div>
               <button onClick={()=>{setShowGate(null);setGuestMode(false);}} style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"15px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:10}}>
                 Create free account →
               </button>
-              <button onClick={()=>setShowGate(null)} style={{width:"100%",background:"transparent",border:"none",color:"#9e9b95",fontSize:14,cursor:"pointer",fontFamily:"inherit",padding:"8px"}}>
+              <button onClick={()=>setShowGate(null)} style={{width:"100%",background:"transparent",border:"none",color:dmText2,fontSize:14,cursor:"pointer",fontFamily:"inherit",padding:"8px"}}>
                 Continue exploring
               </button>
             </div>
@@ -1540,13 +1551,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               {/* Step 0: Welcome */}
               {onboardStep===0&&(<>
                 <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>Welcome to DayFlow 👋</div>
-                <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:20}}>Your personal daily finance tracker. Let's get everything set up so DayFlow works perfectly for your life.</div>
+                <div style={{fontSize:15,color:dmText2,lineHeight:1.6,marginBottom:20}}>Your personal daily finance tracker. Let's get everything set up so DayFlow works perfectly for your life.</div>
                 <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:18,padding:20,marginBottom:20,border:"1px solid #ece9e0"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:14}}>Here's how DayFlow works</div>
+                  <div style={{fontSize:12,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:14}}>Here's how DayFlow works</div>
                   {[["💰","Enter your take-home income"],["🧾","Add recurring bills & subscriptions"],["👨‍👩‍👧","Optionally add family members to pool income"],["📅","Get a personalized daily spending budget"],["🤖","Ask the AI Advisor anything about your money"]].map(([icon,text],i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
                       <span style={{fontSize:18}}>{icon}</span>
-                      <span style={{fontSize:14,fontWeight:500,color:"#1a1a2e"}}>{text}</span>
+                      <span style={{fontSize:14,fontWeight:500,color:dmText}}>{text}</span>
                     </div>
                   ))}
                 </div>
@@ -1558,17 +1569,17 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
               {/* Step 1: Income */}
               {onboardStep===1&&(<>
-                <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 1 of 5</div>
+                <div style={{fontSize:11,fontWeight:700,color:dmText3,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 1 of 5</div>
                 <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>What's your monthly take-home?</div>
-                <div style={{fontSize:14,color:"#9e9b95",marginBottom:10,lineHeight:1.6}}>Enter your income <strong>after taxes</strong> — the amount that actually hits your bank account each month.</div>
+                <div style={{fontSize:14,color:dmText2,marginBottom:10,lineHeight:1.6}}>Enter your income <strong>after taxes</strong> — the amount that actually hits your bank account each month.</div>
                 <div style={{background:"#fff8e1",borderRadius:12,padding:"10px 14px",marginBottom:18,border:"1px solid #ffe082",fontSize:12,color:"#7a5800"}}>💡 Paid bi-weekly? Multiply one paycheck by 2.17 to get your monthly take-home.</div>
                 <div style={{position:"relative",marginBottom:20}}>
-                  <span style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:18,fontWeight:600,color:"#9e9b95"}}>$</span>
+                  <span style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:18,fontWeight:600,color:dmText2}}>$</span>
                   <input type="number" placeholder="0" value={incStr} onChange={e=>setIncStr(e.target.value)}
                     style={{width:"100%",padding:"16px 16px 16px 36px",fontSize:22,fontWeight:700,border:"2px solid #ece9e0",borderRadius:16,outline:"none",fontFamily:"inherit"}} autoFocus/>
                 </div>
                 <div style={{display:"flex",gap:12}}>
-                  <button onClick={()=>setOnboardStep(0)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
+                  <button onClick={()=>setOnboardStep(0)} style={{flex:1,background:dmSurface,color:dmText,border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
                   <button onClick={()=>{
                     const inc=parseFloat(incStr)||0;
                     if(inc<=0){alert("Please enter your monthly income");return;}
@@ -1582,20 +1593,20 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
               {/* Step 2: Bills */}
               {onboardStep===2&&(<>
-                <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 2 of 5</div>
+                <div style={{fontSize:11,fontWeight:700,color:dmText3,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 2 of 5</div>
                 <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Add your recurring bills</div>
-                <div style={{fontSize:14,color:"#9e9b95",marginBottom:14,lineHeight:1.6}}>Bills get subtracted from your income first. What's left becomes your spendable pool — divided across the month for your daily budget.</div>
+                <div style={{fontSize:14,color:dmText2,marginBottom:14,lineHeight:1.6}}>Bills get subtracted from your income first. What's left becomes your spendable pool — divided across the month for your daily budget.</div>
                 <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #ece9e0"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Common bills to add in the Bills tab</div>
+                  <div style={{fontSize:12,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Common bills to add in the Bills tab</div>
                   {[["🏠","Rent / Mortgage"],["🚗","Car payment"],["📱","Phone"],["💡","Utilities"],["🎬","Subscriptions (Netflix, Spotify…)"],["🏥","Insurance (health, car, renters)"],["💳","Minimum debt payments"]].map(([icon,label])=>(
-                    <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:"1px solid #f0efe9"}}>
+                    <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:`1px solid ${dmBorder2}`}}>
                       <span style={{fontSize:15}}>{icon}</span>
-                      <span style={{fontSize:13,color:"#1a1a2e"}}>{label}</span>
+                      <span style={{fontSize:13,color:dmText}}>{label}</span>
                     </div>
                   ))}
                 </div>
                 <div style={{display:"flex",gap:10}}>
-                  <button onClick={()=>setOnboardStep(1)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"13px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
+                  <button onClick={()=>setOnboardStep(1)} style={{flex:1,background:dmSurface,color:dmText,border:"1px solid #ece9e0",borderRadius:16,padding:"13px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
                   <button onClick={()=>{setShowOnboarding(false);localStorage.setItem(ONBOARD_KEY,"1");setTab("recurring");}} style={{flex:1,background:"#f0f0ff",color:"#7048e8",border:"1px solid #d8d0ff",borderRadius:16,padding:"13px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add bills now</button>
                   <button onClick={()=>setOnboardStep(3)} style={{flex:1,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"13px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Skip →</button>
                 </div>
@@ -1603,21 +1614,21 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
               {/* Step 3: Household */}
               {onboardStep===3&&(<>
-                <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 3 of 5</div>
+                <div style={{fontSize:11,fontWeight:700,color:dmText3,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 3 of 5</div>
                 <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Do you share finances?</div>
-                <div style={{fontSize:14,color:"#9e9b95",marginBottom:14,lineHeight:1.6}}>DayFlow supports household mode — combine income from a partner, spouse, or family member to get a shared daily budget that reflects your real household finances.</div>
+                <div style={{fontSize:14,color:dmText2,marginBottom:14,lineHeight:1.6}}>DayFlow supports household mode — combine income from a partner, spouse, or family member to get a shared daily budget that reflects your real household finances.</div>
                 <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #ece9e0"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Household mode lets you</div>
+                  <div style={{fontSize:12,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Household mode lets you</div>
                   {[["👩‍❤️‍👨","Pool income from multiple earners"],["📊","See combined bills vs combined income"],["👧","Track each person's contribution"],["🏦","Get a household daily spending budget"]].map(([icon,text])=>(
-                    <div key={text} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"1px solid #f0efe9"}}>
+                    <div key={text} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:`1px solid ${dmBorder2}`}}>
                       <span style={{fontSize:16}}>{icon}</span>
-                      <span style={{fontSize:13,color:"#1a1a2e"}}>{text}</span>
+                      <span style={{fontSize:13,color:dmText}}>{text}</span>
                     </div>
                   ))}
                 </div>
-                <div style={{fontSize:13,color:"#9e9b95",marginBottom:16,textAlign:"center"}}>You can set this up now in the <strong>Household</strong> tab, or skip and do it later.</div>
+                <div style={{fontSize:13,color:dmText2,marginBottom:16,textAlign:"center"}}>You can set this up now in the <strong>Household</strong> tab, or skip and do it later.</div>
                 <div style={{display:"flex",gap:10}}>
-                  <button onClick={()=>setOnboardStep(2)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"13px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
+                  <button onClick={()=>setOnboardStep(2)} style={{flex:1,background:dmSurface,color:dmText,border:"1px solid #ece9e0",borderRadius:16,padding:"13px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
                   <button onClick={()=>{setShowOnboarding(false);localStorage.setItem(ONBOARD_KEY,"1");setTab("household");}} style={{flex:1,background:"#fff3e0",color:"#e65100",border:"1px solid #ffcc80",borderRadius:16,padding:"13px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Set up household</button>
                   <button onClick={()=>setOnboardStep(4)} style={{flex:1,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"13px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Skip →</button>
                 </div>
@@ -1625,15 +1636,15 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
               {/* Step 4: AI Advisor */}
               {onboardStep===4&&(<>
-                <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 4 of 5</div>
+                <div style={{fontSize:11,fontWeight:700,color:dmText3,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 4 of 5</div>
                 <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Meet your AI Advisor 🤖</div>
-                <div style={{fontSize:14,color:"#9e9b95",marginBottom:14,lineHeight:1.6}}>DayFlow includes a personal financial advisor powered by AI. It knows your income, bills, and spending — and can answer any money question.</div>
+                <div style={{fontSize:14,color:dmText2,marginBottom:14,lineHeight:1.6}}>DayFlow includes a personal financial advisor powered by AI. It knows your income, bills, and spending — and can answer any money question.</div>
                 <div style={{background:"#f3eeff",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #d8d0ff"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#7048e8",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Ask it things like</div>
                   {["How does a Roth IRA work?","Am I saving enough each month?","What's the difference between HSA and FSA?","How can I pay off debt faster?","Should I invest or build my emergency fund first?"].map(q=>(
                     <div key={q} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #ede6ff"}}>
                       <span style={{color:"#7048e8",fontSize:13,flexShrink:0}}>→</span>
-                      <span style={{fontSize:13,color:"#1a1a2e"}}>{q}</span>
+                      <span style={{fontSize:13,color:dmText}}>{q}</span>
                     </div>
                   ))}
                 </div>
@@ -1641,7 +1652,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   📄 <strong>Upload a paystub</strong> in the Advisor tab and it will read your deductions, 401k contributions, and tax withholdings to give you personalized advice.
                 </div>
                 <div style={{display:"flex",gap:12}}>
-                  <button onClick={()=>setOnboardStep(3)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
+                  <button onClick={()=>setOnboardStep(3)} style={{flex:1,background:dmSurface,color:dmText,border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>
                   <button onClick={()=>setOnboardStep(5)} style={{flex:2,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Continue →</button>
                 </div>
               </>)}
@@ -1649,11 +1660,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               {/* Step 5: All set */}
               {onboardStep===5&&(<>
                 <div style={{fontSize:26,fontWeight:800,marginBottom:6,textAlign:"center"}}>You're all set! 🎉</div>
-                <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.6,marginBottom:18,textAlign:"center"}}>Here's your personalized daily spending budget based on what you've entered so far.</div>
+                <div style={{fontSize:14,color:dmText2,lineHeight:1.6,marginBottom:18,textAlign:"center"}}>Here's your personalized daily spending budget based on what you've entered so far.</div>
                 <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:20,padding:24,marginBottom:18,border:"1px solid #ece9e0",textAlign:"center"}}>
-                  <div style={{fontSize:13,color:"#9e9b95",marginBottom:4}}>Your daily spending budget</div>
-                  <div style={{fontSize:44,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.02em"}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
-                  <div style={{fontSize:12,color:"#bbb9b0",marginTop:4}}>per day to spend freely</div>
+                  <div style={{fontSize:13,color:dmText2,marginBottom:4}}>Your daily spending budget</div>
+                  <div style={{fontSize:44,fontWeight:800,color:dmText,letterSpacing:"-0.02em"}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
+                  <div style={{fontSize:12,color:dmText3,marginTop:4}}>per day to spend freely</div>
                 </div>
                 <div style={{background:"#f0fff4",borderRadius:14,padding:14,marginBottom:18,border:"1px solid #b2f2bb",fontSize:13,color:"#1a6b2a",lineHeight:1.6}}>
                   💡 <strong>Quick tips:</strong> Log spending on the <strong>Today</strong> tab. Add bills in <strong>Bills</strong>. Ask your <strong>AI Advisor</strong> anything. Explore <strong>Financial Education</strong> in the More menu for free guides on 401k, Roth IRA, HSA, and more.
@@ -1671,7 +1682,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
               <div style={{textAlign:"center",marginBottom:20}}>
                 <div style={{fontSize:24,fontWeight:800,marginBottom:6}}>Upgrade DayFlow</div>
-                <div style={{fontSize:14,color:"#9e9b95"}}>Unlock powerful features for your finances</div>
+                <div style={{fontSize:14,color:dmText2}}>Unlock powerful features for your finances</div>
               </div>
               <div style={{display:"flex",background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #ece9e0"}}>
                 {["monthly","annual"].map(b=>(
@@ -1689,7 +1700,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
                     <div>
                       <div style={{fontSize:18,fontWeight:800,color:plan.color}}>{plan.name}</div>
-                      <div style={{fontSize:28,fontWeight:800,marginTop:2}}>${upgradeBilling==="monthly"?plan.price.monthly:plan.price.annual}<span style={{fontSize:13,fontWeight:500,color:"#9e9b95"}}>/mo</span></div>
+                      <div style={{fontSize:28,fontWeight:800,marginTop:2}}>${upgradeBilling==="monthly"?plan.price.monthly:plan.price.annual}<span style={{fontSize:13,fontWeight:500,color:dmText2}}>/mo</span></div>
                     </div>
                   </div>
                   {plan.features.map(f=>(
@@ -1697,7 +1708,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       <div style={{width:16,height:16,borderRadius:"50%",background:`${plan.color}20`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                         <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><polyline points="4 10 8 14 16 6" stroke={plan.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </div>
-                      <span style={{fontSize:13,color:"#1a1a2e"}}>{f}</span>
+                      <span style={{fontSize:13,color:dmText}}>{f}</span>
                     </div>
                   ))}
                   <button onClick={()=>handleUpgrade(plan.key)} disabled={upgradeLoading} style={{width:"100%",marginTop:16,background:plan.color,color:"#fff",border:"none",borderRadius:14,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:upgradeLoading?0.7:1,fontFamily:"inherit"}}>
@@ -1705,7 +1716,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   </button>
                 </div>
               ))}
-              <button onClick={()=>setShowUpgrade(false)} style={{width:"100%",background:"transparent",border:"none",color:"#9e9b95",fontSize:14,cursor:"pointer",padding:"8px",fontFamily:"inherit"}}>Maybe later</button>
+              <button onClick={()=>setShowUpgrade(false)} style={{width:"100%",background:"transparent",border:"none",color:dmText2,fontSize:14,cursor:"pointer",padding:"8px",fontFamily:"inherit"}}>Maybe later</button>
             </div>
           </div>
         )}
@@ -1718,13 +1729,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               {onboardStep===0&&(
                 <>
                   <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>Welcome to DayFlow 👋</div>
-                  <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:28}}>Let's set up your daily spending allowance in 2 quick steps. It only takes a minute.</div>
+                  <div style={{fontSize:15,color:dmText2,lineHeight:1.6,marginBottom:28}}>Let's set up your daily spending allowance in 2 quick steps. It only takes a minute.</div>
                   <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:18,padding:20,marginBottom:24,border:"1px solid #ece9e0"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>How it works</div>
+                    <div style={{fontSize:12,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>How it works</div>
                     {[["💰","Enter last month's take-home income"],["🧾","Add your recurring bills"],["📅","We calculate your daily spending budget"]].map(([icon,text])=>(
                       <div key={text} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
                         <span style={{fontSize:20}}>{icon}</span>
-                        <span style={{fontSize:14,fontWeight:500,color:"#1a1a2e"}}>{text}</span>
+                        <span style={{fontSize:14,fontWeight:500,color:dmText}}>{text}</span>
                       </div>
                     ))}
                   </div>
@@ -1734,9 +1745,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               {onboardStep===1&&(
                 <>
                   <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>What's your monthly take-home?</div>
-                  <div style={{fontSize:14,color:"#9e9b95",marginBottom:24}}>After taxes — what hits your bank account each month?</div>
+                  <div style={{fontSize:14,color:dmText2,marginBottom:24}}>After taxes — what hits your bank account each month?</div>
                   <div style={{position:"relative",marginBottom:24}}>
-                    <span style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:18,fontWeight:600,color:"#9e9b95"}}>$</span>
+                    <span style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:18,fontWeight:600,color:dmText2}}>$</span>
                     <input
                       type="number" placeholder="0"
                       value={incStr}
@@ -1746,7 +1757,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     />
                   </div>
                   <div style={{display:"flex",gap:12}}>
-                    <button onClick={()=>setOnboardStep(0)} style={{flex:1,background:"#f8f7f2",color:"#1a1a2e",border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer"}}>← Back</button>
+                    <button onClick={()=>setOnboardStep(0)} style={{flex:1,background:dmSurface,color:dmText,border:"1px solid #ece9e0",borderRadius:16,padding:"14px",fontSize:14,fontWeight:600,cursor:"pointer"}}>← Back</button>
                     <button onClick={()=>{
                       const inc = parseFloat(incStr)||0;
                       if (inc<=0){alert("Please enter your monthly income");return;}
@@ -1761,11 +1772,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               {onboardStep===2&&(
                 <>
                   <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>You're all set! 🎉</div>
-                  <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:24}}>Your daily allowance is now calculated. Head to the <strong>Bills</strong> tab to add your recurring expenses for an even more accurate number.</div>
+                  <div style={{fontSize:15,color:dmText2,lineHeight:1.6,marginBottom:24}}>Your daily allowance is now calculated. Head to the <strong>Bills</strong> tab to add your recurring expenses for an even more accurate number.</div>
                   <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:18,padding:20,marginBottom:24,border:"1px solid #ece9e0",textAlign:"center"}}>
-                    <div style={{fontSize:13,color:"#9e9b95",marginBottom:4}}>Your daily spending budget</div>
-                    <div style={{fontSize:36,fontWeight:800,color:"#1a1a2e"}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
-                    <div style={{fontSize:12,color:"#bbb9b0",marginTop:4}}>per day</div>
+                    <div style={{fontSize:13,color:dmText2,marginBottom:4}}>Your daily spending budget</div>
+                    <div style={{fontSize:36,fontWeight:800,color:dmText}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
+                    <div style={{fontSize:12,color:dmText3,marginTop:4}}>per day</div>
                   </div>
                   <button onClick={()=>setShowOnboarding(false)} style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Start tracking →</button>
                 </>
@@ -1781,7 +1792,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
               <div style={{textAlign:"center",marginBottom:20}}>
                 <div style={{fontSize:24,fontWeight:800,marginBottom:6}}>Upgrade DayFlow</div>
-                <div style={{fontSize:14,color:"#9e9b95"}}>Unlock powerful features for your finances</div>
+                <div style={{fontSize:14,color:dmText2}}>Unlock powerful features for your finances</div>
               </div>
               {/* Billing toggle */}
               <div style={{display:"flex",background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #ece9e0"}}>
@@ -1801,7 +1812,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
                     <div>
                       <div style={{fontSize:18,fontWeight:800,color:plan.color}}>{plan.name}</div>
-                      <div style={{fontSize:28,fontWeight:800,marginTop:2}}>${upgradeBilling==="monthly"?plan.price.monthly:plan.price.annual}<span style={{fontSize:13,fontWeight:500,color:"#9e9b95"}}>/mo</span></div>
+                      <div style={{fontSize:28,fontWeight:800,marginTop:2}}>${upgradeBilling==="monthly"?plan.price.monthly:plan.price.annual}<span style={{fontSize:13,fontWeight:500,color:dmText2}}>/mo</span></div>
                     </div>
                   </div>
                   {plan.features.map(f=>(
@@ -1809,7 +1820,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       <div style={{width:16,height:16,borderRadius:"50%",background:`${plan.color}20`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                         <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><polyline points="4 10 8 14 16 6" stroke={plan.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </div>
-                      <span style={{fontSize:13,color:"#1a1a2e"}}>{f}</span>
+                      <span style={{fontSize:13,color:dmText}}>{f}</span>
                     </div>
                   ))}
                   <button onClick={()=>handleUpgrade(plan.key)} disabled={upgradeLoading} style={{width:"100%",marginTop:16,background:plan.color,color:"#fff",border:"none",borderRadius:14,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:upgradeLoading?0.7:1,fontFamily:"inherit"}}>
@@ -1817,7 +1828,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   </button>
                 </div>
               ))}
-              <button onClick={()=>setShowUpgrade(false)} style={{width:"100%",background:"transparent",border:"none",color:"#9e9b95",fontSize:14,cursor:"pointer",padding:"8px",fontFamily:"inherit"}}>Maybe later</button>
+              <button onClick={()=>setShowUpgrade(false)} style={{width:"100%",background:"transparent",border:"none",color:dmText2,fontSize:14,cursor:"pointer",padding:"8px",fontFamily:"inherit"}}>Maybe later</button>
             </div>
           </div>
         )}
@@ -1826,7 +1837,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         <div style={{maxWidth:560,margin:"0 auto",padding:"28px 20px 0"}}>
           <R style={{justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
             <C style={{gap:5}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#9e9b95",letterSpacing:"0.06em",textTransform:"uppercase"}}>
+              <div style={{fontSize:11,fontWeight:600,color:dmText2,letterSpacing:"0.06em",textTransform:"uppercase"}}>
                 {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
               </div>
               {/* ── DayFlow wave wordmark ── */}
@@ -1895,29 +1906,29 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <div style={{position:"relative",width:140,height:140,flexShrink:0}}>
                     <Ring pct={pctDay} fg={accent} bg={accentBg}/>
                     <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2}}>
-                      <div style={{fontSize:10,fontWeight:700,color:"#9e9b95",letterSpacing:"0.08em"}}>USED</div>
+                      <div style={{fontSize:10,fontWeight:700,color:dmText2,letterSpacing:"0.08em"}}>USED</div>
                       <div style={{fontSize:26,fontWeight:800,color:accent,lineHeight:1,letterSpacing:"-0.03em"}}>
                         {Math.round(Math.min(999,pctDay*100))}%
                       </div>
-                      <div style={{fontSize:11,fontWeight:500,color:"#9e9b95"}}>{fmtFull(daySpent)}</div>
+                      <div style={{fontSize:11,fontWeight:500,color:dmText2}}>{fmtFull(daySpent)}</div>
                     </div>
                   </div>
 
                   {/* Stats */}
                   <C style={{flex:1,gap:0}}>
-                    <div style={{fontSize:10,fontWeight:700,color:"#9e9b95",letterSpacing:"0.08em",marginBottom:4}}>LEFT TODAY</div>
+                    <div style={{fontSize:10,fontWeight:700,color:dmText2,letterSpacing:"0.08em",marginBottom:4}}>LEFT TODAY</div>
                     <div style={{fontSize:36,fontWeight:300,letterSpacing:"-0.05em",color: over?"#e03131":"#1a1a2e",lineHeight:1,marginBottom:2}}>
                       {over?"−":""}{fmtFull(Math.abs(todayLeft))}
                     </div>
-                    <div style={{fontSize:12,color:"#bbb9b0",marginBottom:20}}>{fmtFull(myAllow)} daily allowance</div>
+                    <div style={{fontSize:12,color:dmText3,marginBottom:20}}>{fmtFull(myAllow)} daily allowance</div>
 
-                    <div style={{height:1,background:"#f0efe9",marginBottom:16}}/>
+                    <div style={{height:1,background:dm("#22222e","#f0efe9"),marginBottom:16}}/>
 
-                    <div style={{fontSize:10,fontWeight:700,color:"#9e9b95",letterSpacing:"0.08em",marginBottom:4}}>MONTH POOL</div>
+                    <div style={{fontSize:10,fontWeight:700,color:dmText2,letterSpacing:"0.08em",marginBottom:4}}>MONTH POOL</div>
                     <div style={{fontSize:26,fontWeight:300,letterSpacing:"-0.04em",color:poolLeft<0?"#e03131":"#1a1a2e",lineHeight:1,marginBottom:2}}>
                       {poolLeft<0?"−":""}{fmt(Math.abs(poolLeft))}
                     </div>
-                    <div style={{fontSize:12,color:"#bbb9b0"}}>{dLeft} days remaining</div>
+                    <div style={{fontSize:12,color:dmText3}}>{dLeft} days remaining</div>
                   </C>
                 </R>
 
@@ -1935,11 +1946,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   {[
                     {label:"Last month's income",     val:data.monthlyIncome,              sign:"+",color:"#2f9e44"},
                     {label:"Monthly recurring removed",val:totalBills(data.recurringPayments),sign:"−",color:"#e03131"},
-                    {label:"Spendable pool",           val:myPoolReal,                          sign:"",color:"#1a1a2e",bold:true,sep:true},
-                    {label:`÷ ${DIM} days = daily`,val:myAllow,                  sign:"",color:"#9e9b95",italic:true},
+                    {label:"Spendable pool",           val:myPoolReal,                          sign:"",color:dmText,bold:true,sep:true},
+                    {label:`÷ ${DIM} days = daily`,val:myAllow,                  sign:"",color:dmText2,italic:true},
                   ].map(({label,val,sign,color,bold,sep,italic})=>(
                     <R key={label} style={{justifyContent:"space-between",padding:"9px 0",borderTop:sep?"1px solid #f0efe9":"none",marginTop:sep?6:0}}>
-                      <span style={{fontSize:13,color:"#9e9b95",fontStyle:italic?"italic":"normal"}}>{label}</span>
+                      <span style={{fontSize:13,color:dmText2,fontStyle:italic?"italic":"normal"}}>{label}</span>
                       <span style={{fontSize:13,fontWeight:bold?700:500,color}}>{sign}{fmtFull(val)}</span>
                     </R>
                   ))}
@@ -1974,7 +1985,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div className="card" style={{padding:22}}>
                   <R style={{justifyContent:"space-between",marginBottom:14}}>
                     <div className="sec-hd" style={{marginBottom:0}}>Today's activity</div>
-                    <div style={{fontSize:12,color:"#bbb9b0",fontWeight:600}}>{allTodayTx.length} items</div>
+                    <div style={{fontSize:12,color:dmText3,fontWeight:600}}>{allTodayTx.length} items</div>
                   </R>
                   {allTodayTx.map((tx,i)=>{
                     const isOut = tx.type==="expense"||(tx.source==="plaid"&&tx.amount>0);
@@ -1987,7 +1998,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         </div>
                         <C style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:14,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tx.label||tx.name}</div>
-                          {tx.category&&<div style={{fontSize:11,color:"#bbb9b0",marginTop:1}}>{tx.category}</div>}
+                          {tx.category&&<div style={{fontSize:11,color:dmText3,marginTop:1}}>{tx.category}</div>}
                         </C>
                         <div style={{fontSize:15,fontWeight:700,color:isOut?"#e03131":"#2f9e44",flexShrink:0}}>
                           {isOut?"−":"+"}{fmtFull(tx.amount)}
@@ -2062,11 +2073,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 {/* Month navigation header */}
                 <R style={{justifyContent:"space-between",alignItems:"center"}}>
                   <button onClick={goToPrevMonth}
-                    style={{background:"#fff",border:"1px solid #e8e5dc",borderRadius:12,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",color:"#1a1a2e"}}>
+                    style={{background:dmSurface2,border:"1px solid #e8e5dc",borderRadius:12,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",color:dmText}}>
                     ← 
                   </button>
                   <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:16,fontWeight:800,color:"#1a1a2e"}}>
+                    <div style={{fontSize:16,fontWeight:800,color:dmText}}>
                       {viewDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}
                     </div>
                     {!isCurrentMonth && (
@@ -2077,7 +2088,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     )}
                   </div>
                   <button onClick={goToNextMonth}
-                    style={{background:"#fff",border:"1px solid #e8e5dc",borderRadius:12,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",color:isCurrentMonth?"#e0ddd4":"#1a1a2e",pointerEvents:isCurrentMonth?"none":"auto"}}>
+                    style={{background:dmSurface2,border:"1px solid #e8e5dc",borderRadius:12,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",color:isCurrentMonth?"#e0ddd4":"#1a1a2e",pointerEvents:isCurrentMonth?"none":"auto"}}>
                     →
                   </button>
                 </R>
@@ -2087,7 +2098,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <R style={{gap:0,marginBottom:18}}>
                     {[{l:"Pool",v:monthPool,c:"#1a1a2e"},{l:"Spent",v:viewMonthSpent,c:"#e03131"},{l:"Left",v:viewPoolLeft,c:viewPoolLeft>=0?"#2f9e44":"#e03131"}].map(({l,v,c},i)=>(
                       <C key={l} style={{flex:1,paddingLeft:i>0?16:0,paddingRight:i<2?16:0,borderRight:i<2?"1px solid #f0efe9":"none",gap:3}}>
-                        <div style={{fontSize:11,color:"#bbb9b0",fontWeight:700}}>{l}</div>
+                        <div style={{fontSize:11,color:dmText3,fontWeight:700}}>{l}</div>
                         <div style={{fontSize:24,fontWeight:300,color:c,letterSpacing:"-0.03em"}}>{fmt(v)}</div>
                       </C>
                     ))}
@@ -2096,12 +2107,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     <div className="prog-fill" style={{width:`${Math.min(100,monthPool>0?(viewMonthSpent/monthPool)*100:0)}%`,background:viewPoolLeft<0?"#e03131":"#1a1a2e"}}/>
                   </div>
                   <R style={{justifyContent:"space-between",marginTop:6}}>
-                    <span style={{fontSize:11,color:"#bbb9b0"}}>Day 1</span>
-                    <span style={{fontSize:11,color:"#bbb9b0"}}>{Math.round(monthPool>0?(viewMonthSpent/monthPool)*100:0)}% used</span>
-                    <span style={{fontSize:11,color:"#bbb9b0"}}>Day {dim}</span>
+                    <span style={{fontSize:11,color:dmText3}}>Day 1</span>
+                    <span style={{fontSize:11,color:dmText3}}>{Math.round(monthPool>0?(viewMonthSpent/monthPool)*100:0)}% used</span>
+                    <span style={{fontSize:11,color:dmText3}}>Day {dim}</span>
                   </R>
                   {!isCurrentMonth && monthIncome !== data.monthlyIncome && (
-                    <div style={{fontSize:11,color:"#bbb9b0",marginTop:10,fontStyle:"italic",borderTop:"1px solid #f0efe9",paddingTop:8}}>
+                    <div style={{fontSize:11,color:dmText3,marginTop:10,fontStyle:"italic",borderTop:`1px solid ${dmBorder2}`,paddingTop:8}}>
                       Using recorded income of {fmtFull(monthIncome)}/mo for {viewDate.toLocaleDateString("en-US",{month:"long"})}
                     </div>
                   )}
@@ -2138,11 +2149,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     const allow = payload.find(p=>p.dataKey==="allow")?.value??0;
                     const net   = allow - spent;
                     return (
-                      <div style={{background:"#fff",border:"1px solid #f0efe9",borderRadius:12,padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}>
-                        <div style={{fontSize:12,fontWeight:700,color:"#1a1a2e",marginBottom:6}}>Day {label}</div>
+                      <div style={{background:dmSurface2,border:`1px solid ${dmBorder2}`,borderRadius:12,padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}>
+                        <div style={{fontSize:12,fontWeight:700,color:dmText,marginBottom:6}}>Day {label}</div>
                         <div style={{fontSize:12,color:"#e03131",marginBottom:2}}>Spent {fmtFull(spent)}</div>
-                        <div style={{fontSize:12,color:"#bbb9b0",marginBottom:2}}>Allowance {fmtFull(allow)}</div>
-                        <div style={{fontSize:12,fontWeight:700,color:net>=0?"#2f9e44":"#e03131",borderTop:"1px solid #f0efe9",paddingTop:4,marginTop:4}}>
+                        <div style={{fontSize:12,color:dmText3,marginBottom:2}}>Allowance {fmtFull(allow)}</div>
+                        <div style={{fontSize:12,fontWeight:700,color:net>=0?"#2f9e44":"#e03131",borderTop:`1px solid ${dmBorder2}`,paddingTop:4,marginTop:4}}>
                           {net>=0?"+":"−"}{fmtFull(Math.abs(net))} {net>=0?"saved":"over"}
                         </div>
                       </div>
@@ -2159,7 +2170,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         <C style={{gap:3}}>
                           <div className="sec-hd" style={{marginBottom:0}}>Spending flow</div>
                           {avgSpend>0&&(
-                            <div style={{fontSize:12,color:"#9e9b95"}}>
+                            <div style={{fontSize:12,color:dmText2}}>
                               avg {fmtFull(avgSpend)}/day · allowance {fmtFull(monthAllow)}/day
                             </div>
                           )}
@@ -2208,12 +2219,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                             ].map(({color,border,label})=>(
                               <R key={label} style={{gap:5}}>
                                 <div style={{width:10,height:10,borderRadius:3,background:color,border:`1.5px solid ${border}`,flexShrink:0}}/>
-                                <span style={{fontSize:10,color:"#bbb9b0",fontWeight:500}}>{label}</span>
+                                <span style={{fontSize:10,color:dmText3,fontWeight:500}}>{label}</span>
                               </R>
                             ))}
                             <R style={{gap:5,marginLeft:"auto"}}>
                               <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#1a1a2e" strokeWidth="1.5" strokeDasharray="4 2" strokeOpacity="0.4"/></svg>
-                              <span style={{fontSize:10,color:"#bbb9b0",fontWeight:500}}>Daily allowance</span>
+                              <span style={{fontSize:10,color:dmText3,fontWeight:500}}>Daily allowance</span>
                             </R>
                           </R>
                         </>
@@ -2240,10 +2251,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                           const pool = payload.find(p=>p.dataKey==="pool")?.value??0;
                           const pct  = monthPool>0?(pool/monthPool*100):0;
                           return (
-                            <div style={{background:"#fff",border:"1px solid #f0efe9",borderRadius:12,padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}>
-                              <div style={{fontSize:12,fontWeight:700,color:"#1a1a2e",marginBottom:6}}>Day {label}</div>
-                              <div style={{fontSize:12,color:"#1a1a2e",marginBottom:2}}>Pool left {fmtFull(pool)}</div>
-                              <div style={{fontSize:12,color:"#bbb9b0"}}>{pct.toFixed(0)}% remaining</div>
+                            <div style={{background:dmSurface2,border:`1px solid ${dmBorder2}`,borderRadius:12,padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}>
+                              <div style={{fontSize:12,fontWeight:700,color:dmText,marginBottom:6}}>Day {label}</div>
+                              <div style={{fontSize:12,color:dmText,marginBottom:2}}>Pool left {fmtFull(pool)}</div>
+                              <div style={{fontSize:12,color:dmText3}}>{pct.toFixed(0)}% remaining</div>
                             </div>
                           );
                         };
@@ -2265,11 +2276,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                             <R style={{gap:16,marginTop:12,paddingTop:12,borderTop:"1px solid #f4f4f2"}}>
                               <R style={{gap:5}}>
                                 <div style={{width:16,height:3,background:"#1a1a2e",borderRadius:2}}/>
-                                <span style={{fontSize:10,color:"#bbb9b0",fontWeight:500}}>Actual pool</span>
+                                <span style={{fontSize:10,color:dmText3,fontWeight:500}}>Actual pool</span>
                               </R>
                               <R style={{gap:5}}>
                                 <svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke="#d4d0c8" strokeWidth="1.5" strokeDasharray="5 3"/></svg>
-                                <span style={{fontSize:10,color:"#bbb9b0",fontWeight:500}}>On-track pace</span>
+                                <span style={{fontSize:10,color:dmText3,fontWeight:500}}>On-track pace</span>
                               </R>
                               {poolData.length>0&&(
                                 <div style={{marginLeft:"auto",fontSize:11,fontWeight:600,color:poolData[poolData.length-1].pool>=idealData[poolData.length-1]?.ideal?"#2f9e44":"#e03131"}}>
@@ -2291,12 +2302,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       <div className="sec-hd" style={{marginBottom:0}}>{viewDate.toLocaleDateString("en-US",{month:"long",year:"numeric"})}</div>
                       {savedDays>0&&<div style={{fontSize:12,fontWeight:600,color:"#2f9e44"}}>{savedDays} days under budget · {fmtFull(totalSaved)} saved</div>}
                     </C>
-                    {selDay&&<button onClick={()=>setSelDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb9b0",fontSize:12,fontFamily:"inherit",fontWeight:600}}>Clear ×</button>}
+                    {selDay&&<button onClick={()=>setSelDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:dmText3,fontSize:12,fontFamily:"inherit",fontWeight:600}}>Clear ×</button>}
                   </R>
 
                   {/* DOW headers */}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:6}}>
-                    {DOW.map(d=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:700,color:"#ccc9c0",letterSpacing:"0.04em"}}>{d}</div>)}
+                    {DOW.map(d=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:700,color:dmText3,letterSpacing:"0.04em"}}>{d}</div>)}
                   </div>
 
                   {/* Cells */}
@@ -2334,11 +2345,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   </div>
 
                   {/* Legend */}
-                  <R style={{gap:16,marginTop:16,paddingTop:14,borderTop:"1px solid #f0efe9"}}>
+                  <R style={{gap:16,marginTop:16,paddingTop:14,borderTop:`1px solid ${dmBorder2}`}}>
                     {[{bg:"#ebfbee",bc:"#b2f2bb",tc:"#2f9e44",l:"Under"},{bg:"#fff5f5",bc:"#ffc9c9",tc:"#e03131",l:"Over"},{bg:"#1a1a2e",bc:"#1a1a2e",tc:"#fff",l:"Today"}].map(({bg,bc,tc,l})=>(
                       <R key={l} style={{gap:6}}>
                         <div style={{width:14,height:14,borderRadius:5,background:bg,border:`1.5px solid ${bc}`,flexShrink:0}}/>
-                        <span style={{fontSize:11,color:"#bbb9b0",fontWeight:500}}>{l}</span>
+                        <span style={{fontSize:11,color:dmText3,fontWeight:500}}>{l}</span>
                       </R>
                     ))}
                   </R>
@@ -2353,13 +2364,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         <div style={{fontSize:15,fontWeight:700}}>
                           {isTday?"Today":new Date(yr,mo,selDay).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}
                         </div>
-                        <div style={{fontSize:12,color:"#bbb9b0"}}>{selTx.length} transaction{selTx.length!==1?"s":""}</div>
+                        <div style={{fontSize:12,color:dmText3}}>{selTx.length} transaction{selTx.length!==1?"s":""}</div>
                       </C>
                       <C style={{alignItems:"flex-end",gap:2}}>
                         <div style={{fontSize:18,fontWeight:800,color:selNet>=0?"#2f9e44":"#e03131"}}>
                           {selNet>=0?"+":"−"}{fmtFull(Math.abs(selNet))}
                         </div>
-                        <div style={{fontSize:11,color:"#bbb9b0"}}>vs {fmtFull(monthAllow)} allowance</div>
+                        <div style={{fontSize:11,color:dmText3}}>vs {fmtFull(monthAllow)} allowance</div>
                       </C>
                     </R>
 
@@ -2380,7 +2391,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               </div>
                               <C style={{flex:1,minWidth:0}}>
                                 <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tx.label||tx.name}</div>
-                                {tx.category&&<div style={{fontSize:11,color:"#bbb9b0"}}>{tx.category}</div>}
+                                {tx.category&&<div style={{fontSize:11,color:dmText3}}>{tx.category}</div>}
                               </C>
                               <div style={{fontSize:14,fontWeight:700,color:isOut?"#e03131":"#2f9e44",flexShrink:0,marginRight:tx.source==="manual"?4:0}}>
                                 {isOut?"−":"+"}{fmtFull(tx.amount)}
@@ -2395,12 +2406,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         })}
                       </div>
                     ):(
-                      <div style={{textAlign:"center",padding:"16px 0 20px",color:"#bbb9b0",fontSize:13}}>No transactions logged</div>
+                      <div style={{textAlign:"center",padding:"16px 0 20px",color:dmText3,fontSize:13}}>No transactions logged</div>
                     )}
 
                     {/* Add transaction to this day */}
-                    <div style={{borderTop:"1px solid #f0efe9",paddingTop:16}}>
-                      <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>Add to this day</div>
+                    <div style={{borderTop:`1px solid ${dmBorder2}`,paddingTop:16}}>
+                      <div style={{fontSize:11,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>Add to this day</div>
                       <R style={{gap:8,marginBottom:10}}>
                         <input className="inp" placeholder="What was it?" value={selDayTx.label}
                           onChange={e=>setSelDayTx(p=>({...p,label:e.target.value}))}
@@ -2432,7 +2443,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
                 {/* Day cards */}
                 {historyDays.filter(k=>k.startsWith(moPrefix)).length===0?(
-                  <div style={{textAlign:"center",padding:40,color:"#bbb9b0",fontSize:14}}>No spending logged yet</div>
+                  <div style={{textAlign:"center",padding:40,color:dmText3,fontSize:14}}>No spending logged yet</div>
                 ):historyDays.map(dateKey=>{
                   if (!dateKey.startsWith(moPrefix)) return null;
                   const de=data.dailyEntries[dateKey]||{transactions:[]};
@@ -2448,11 +2459,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       <R style={{justifyContent:"space-between",marginBottom:12}}>
                         <C>
                           <div style={{fontSize:14,fontWeight:700}}>{isTday?"Today":fmtDate(dateKey)}</div>
-                          <div style={{fontSize:11,color:"#bbb9b0",marginTop:2}}>{ax.length} transactions</div>
+                          <div style={{fontSize:11,color:dmText3,marginTop:2}}>{ax.length} transactions</div>
                         </C>
                         <C style={{alignItems:"flex-end",gap:2}}>
                           <div style={{fontSize:16,fontWeight:800,color:nt>=0?"#2f9e44":"#e03131"}}>{nt>=0?"+":"−"}{fmtFull(Math.abs(nt))}</div>
-                          <div style={{fontSize:11,color:"#bbb9b0"}}>{fmtFull(ds)} spent</div>
+                          <div style={{fontSize:11,color:dmText3}}>{fmtFull(ds)} spent</div>
                         </C>
                       </R>
                       <div className="prog-track">
@@ -2460,9 +2471,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       </div>
                       {ax.slice(0,3).map((tx,i)=>{
                         const io=tx.type==="expense"||(tx.source==="plaid"&&tx.amount>0);
-                        return <R key={i} style={{justifyContent:"space-between",marginTop:10,fontSize:13}}><span style={{color:"#9e9b95",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"68%"}}>{tx.label||tx.name}</span><span style={{fontWeight:600,color:io?"#e03131":"#2f9e44"}}>{io?"−":"+"}{fmtFull(tx.amount)}</span></R>;
+                        return <R key={i} style={{justifyContent:"space-between",marginTop:10,fontSize:13}}><span style={{color:dmText2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"68%"}}>{tx.label||tx.name}</span><span style={{fontWeight:600,color:io?"#e03131":"#2f9e44"}}>{io?"−":"+"}{fmtFull(tx.amount)}</span></R>;
                       })}
-                      {ax.length>3&&<div style={{fontSize:12,color:"#ccc9c0",marginTop:6}}>+{ax.length-3} more</div>}
+                      {ax.length>3&&<div style={{fontSize:12,color:dmText3,marginTop:6}}>+{ax.length-3} more</div>}
                     </div>
                   );
                 })}
@@ -2487,10 +2498,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <div style={{marginTop:8}}>
                     <div className="sec-hd">Recurring expenses</div>
                     <R style={{alignItems:"baseline",gap:6,marginBottom:4}}>
-                      <div style={{fontSize:44,fontWeight:300,letterSpacing:"-0.05em",color:"#1a1a2e",lineHeight:1}}>{fmtFull(tb)}</div>
-                      <div style={{fontSize:16,color:"#bbb9b0",fontWeight:500}}>/mo</div>
+                      <div style={{fontSize:44,fontWeight:300,letterSpacing:"-0.05em",color:dmText,lineHeight:1}}>{fmtFull(tb)}</div>
+                      <div style={{fontSize:16,color:dmText3,fontWeight:500}}>/mo</div>
                     </R>
-                    <div style={{fontSize:13,color:"#9e9b95",marginBottom:tb>0?20:0}}>
+                    <div style={{fontSize:13,color:dmText2,marginBottom:tb>0?20:0}}>
                       {fmtFull(tb/DIM)}/day · leaves {fmtFull(myPoolReal)}/mo spendable
                     </div>
                     {catTotals.length>0&&(
@@ -2503,9 +2514,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                             <div style={{flex:1}}>
                               <R style={{justifyContent:"space-between",marginBottom:4}}>
                                 <span style={{fontSize:12,fontWeight:600,color:"#6b6965"}}>{c.label}</span>
-                                <span style={{fontSize:12,fontWeight:600,color:"#1a1a2e"}}>{fmtFull(c.total)}</span>
+                                <span style={{fontSize:12,fontWeight:600,color:dmText}}>{fmtFull(c.total)}</span>
                               </R>
-                              <div style={{height:3,background:"#f0efe9",borderRadius:3,overflow:"hidden"}}>
+                              <div style={{height:3,background:dm("#22222e","#f0efe9"),borderRadius:3,overflow:"hidden"}}>
                                 <div style={{height:"100%",borderRadius:3,background:c.fg,width:`${tb>0?(c.total/tb)*100:0}%`,opacity:0.75,transition:"width 0.5s ease"}}/>
                               </div>
                             </div>
@@ -2546,7 +2557,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   </R>
                   <R style={{gap:8}}>
                     <C style={{flex:1}}>
-                      <div style={{fontSize:11,color:"#9e9b95",marginBottom:4,fontWeight:500}}>Due day of month</div>
+                      <div style={{fontSize:11,color:dmText2,marginBottom:4,fontWeight:500}}>Due day of month</div>
                       <input className="inp" type="number" min="1" max="31" placeholder="1" value={newRec.dueDay}
                         onChange={e=>setNewRec(p=>({...p,dueDay:Math.min(31,Math.max(1,parseInt(e.target.value)||1))}))}/>
                     </C>
@@ -2558,7 +2569,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
                 {/* Grouped list */}
                 {data.recurringPayments.length===0?(
-                  <div style={{textAlign:"center",padding:40,color:"#bbb9b0",fontSize:14}}>No recurring expenses yet — add your first above</div>
+                  <div style={{textAlign:"center",padding:40,color:dmText3,fontSize:14}}>No recurring expenses yet — add your first above</div>
                 ):activeCats.map(cat=>(
                   <div key={cat.id} className="card" style={{padding:22}}>
                     <R style={{gap:10,marginBottom:14}}>
@@ -2566,8 +2577,8 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         <I n={cat.icon} s={17} c={cat.fg}/>
                       </div>
                       <C style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e"}}>{cat.label}</div>
-                        <div style={{fontSize:11,color:"#bbb9b0"}}>{grouped[cat.id].length} expense{grouped[cat.id].length!==1?"s":""} · {fmtFull(grouped[cat.id].reduce((s,p)=>s+monthlyEquiv(p),0))}/mo</div>
+                        <div style={{fontSize:13,fontWeight:700,color:dmText}}>{cat.label}</div>
+                        <div style={{fontSize:11,color:dmText3}}>{grouped[cat.id].length} expense{grouped[cat.id].length!==1?"s":""} · {fmtFull(grouped[cat.id].reduce((s,p)=>s+monthlyEquiv(p),0))}/mo</div>
                       </C>
                     </R>
                     {grouped[cat.id].map(p=>(
@@ -2575,12 +2586,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         <div className="tx-row">
                           <C style={{flex:1}}>
                             <div style={{fontSize:14,fontWeight:600}}>{p.name}</div>
-                            <div style={{fontSize:11,color:"#bbb9b0",marginTop:1}}>
+                            <div style={{fontSize:11,color:dmText3,marginTop:1}}>
                               {fmtFull(p.amount)}{FL[p.frequency]} · {fmtFull(monthlyEquiv(p))}/mo · due day {p.dueDay||1}
                             </div>
                           </C>
                           <div style={{fontSize:14,fontWeight:700,color:"#e03131",marginRight:8}}>−{fmtFull(p.amount)}</div>
-                          <button className="rm" style={{color:"#9e9b95",marginRight:4}} onClick={()=>{
+                          <button className="rm" style={{color:dmText2,marginRight:4}} onClick={()=>{
                             if (editRecId===p.id) { setEditRecId(null); return; }
                             setEditRecId(p.id);
                             setEditRecData({name:p.name,amount:p.amount,frequency:p.frequency,category:p.category||"other",dueDay:p.dueDay||1});
@@ -2625,8 +2636,8 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <div className="card-inset" style={{padding:18,margin:"0 2px"}}>
                     <R style={{justifyContent:"space-between"}}>
                       <C style={{gap:2}}>
-                        <div style={{fontSize:12,fontWeight:600,color:"#9e9b95"}}>Spendable pool after all recurring</div>
-                        <div style={{fontSize:11,color:"#bbb9b0"}}>{fmtFull(myAllow)}/day · {DIM} days this month</div>
+                        <div style={{fontSize:12,fontWeight:600,color:dmText2}}>Spendable pool after all recurring</div>
+                        <div style={{fontSize:11,color:dmText3}}>{fmtFull(myAllow)}/day · {DIM} days this month</div>
                       </C>
                       <div style={{fontSize:22,fontWeight:700,color:myPoolReal>=0?"#1a1a2e":"#e03131"}}>{fmtFull(myPoolReal)}</div>
                     </R>
@@ -2645,11 +2656,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   return (
                     <div className="card" style={{padding:22}}>
                       <div className="sec-hd">Bill Calendar — {new Date().toLocaleDateString("en-US",{month:"long"})}</div>
-                      <div style={{fontSize:12,color:"#9e9b95",marginBottom:16,lineHeight:1.6}}>
+                      <div style={{fontSize:12,color:dmText2,marginBottom:16,lineHeight:1.6}}>
                         Bills are spread into your daily allowance — these are the actual due dates.
                       </div>
                       {Object.keys(billsByDay).length===0?(
-                        <div style={{textAlign:"center",padding:30,color:"#bbb9b0",fontSize:13}}>Add bills above to see them here</div>
+                        <div style={{textAlign:"center",padding:30,color:dmText3,fontSize:13}}>Add bills above to see them here</div>
                       ):Array.from({length:DIM},(_,i)=>i+1).map(day=>{
                         const bills = billsByDay[day];
                         if (!bills?.length) return null;
@@ -2681,7 +2692,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                                       </div>
                                       <C style={{gap:1}}>
                                         <span style={{fontSize:12,fontWeight:600,color:isPast?"#bbb9b0":"#1a1a2e"}}>{r.name}</span>
-                                        <span style={{fontSize:10,color:"#bbb9b0"}}>{FL2[r.frequency]||"/mo"} · due day {r.dueDay||1}</span>
+                                        <span style={{fontSize:10,color:dmText3}}>{FL2[r.frequency]||"/mo"} · due day {r.dueDay||1}</span>
                                       </C>
                                     </R>
                                     <span style={{fontSize:12,fontWeight:600,color:isPast?"#ccc9c0":"#e03131"}}>−{fmtFull(r.amount)}</span>
@@ -2710,7 +2721,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       <I n="bank" s={28} c="#3b5bdb"/>
                     </div>
                     <div style={{fontSize:22,fontWeight:800,letterSpacing:"-0.03em",marginBottom:10}}>Connect your bank</div>
-                    <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.7,maxWidth:300,margin:"0 auto 28px"}}>
+                    <div style={{fontSize:14,color:dmText2,lineHeight:1.7,maxWidth:300,margin:"0 auto 28px"}}>
                       Link via Plaid to auto-import transactions and track your daily spending automatically.
                     </div>
                     <button className="btn" onClick={()=>{setModal(true);setStep(0);}} style={{margin:"0 auto",borderRadius:16,padding:"15px 28px",fontSize:15,boxShadow:"0 4px 16px rgba(26,26,46,0.3)"}}>
@@ -2720,12 +2731,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   {[{icon:"arrow",title:"Auto-import transactions",desc:"Every purchase shows up automatically — no manual entry."},{icon:"check",title:"Accurate daily tracking",desc:"Real bank data feeds directly into your daily allowance."},{icon:"bank",title:"Bank-level security",desc:"Plaid encrypts everything. DayFlow never sees your credentials."}].map(({icon,title,desc})=>(
                     <div key={title} className="card" style={{padding:20}}>
                       <R style={{gap:14}}>
-                        <div style={{width:44,height:44,borderRadius:14,background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <div style={{width:44,height:44,borderRadius:14,background:dm("#22222e","#f0efe9"),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                           <I n={icon} s={20} c="#1a1a2e"/>
                         </div>
                         <C>
                           <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>{title}</div>
-                          <div style={{fontSize:13,color:"#9e9b95",lineHeight:1.55}}>{desc}</div>
+                          <div style={{fontSize:13,color:dmText2,lineHeight:1.55}}>{desc}</div>
                         </C>
                       </R>
                     </div>
@@ -2747,8 +2758,8 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       <button className="btn-ghost" style={{borderColor:"#ffc9c9",color:"#e03131",fontSize:12,padding:"8px 14px"}} onClick={()=>upd({plaidConnected:false,bankName:"",plaidTransactions:[]})}>Disconnect</button>
                     </R>
                     {[{l:"Transactions imported",v:data.plaidTransactions.length,red:false},{l:"Month spending from bank",v:"−"+fmtFull(ptx.filter(t=>t.date?.startsWith(thisMonth())).reduce((s,t)=>s+Math.max(0,t.amount),0)),red:true}].map(({l,v,red})=>(
-                      <R key={l} style={{justifyContent:"space-between",padding:"13px 0",borderTop:"1px solid #f0efe9"}}>
-                        <span style={{fontSize:13,color:"#9e9b95"}}>{l}</span>
+                      <R key={l} style={{justifyContent:"space-between",padding:"13px 0",borderTop:`1px solid ${dmBorder2}`}}>
+                        <span style={{fontSize:13,color:dmText2}}>{l}</span>
                         <span style={{fontSize:14,fontWeight:700,color:red?"#e03131":"#1a1a2e"}}>{v}</span>
                       </R>
                     ))}
@@ -2762,7 +2773,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         </div>
                         <C style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:14,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tx.name}</div>
-                          <div style={{fontSize:11,color:"#bbb9b0",marginTop:1}}>{tx.category} · {fmtDate(tx.date)}</div>
+                          <div style={{fontSize:11,color:dmText3,marginTop:1}}>{tx.category} · {fmtDate(tx.date)}</div>
                         </C>
                         <div style={{fontSize:15,fontWeight:700,color:"#e03131",flexShrink:0}}>−{fmtFull(tx.amount)}</div>
                       </div>
@@ -2807,7 +2818,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
             const totalHPool   = myPoolReal;
 
             // Owner "member" for display
-            const owner = { id:"owner", name:"You", color:"#1a1a2e", monthlyIncome: data.monthlyIncome, recurringPayments: data.recurringPayments||[] };
+            const owner = { id:"owner", name:"You", color:dmText, monthlyIncome: data.monthlyIncome, recurringPayments: data.recurringPayments||[] };
             const allPeople = [owner, ...(data.members||[])];
 
             // Billing calendar — days of month with bills due
@@ -2830,16 +2841,16 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     <R style={{justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
                       <C style={{gap:3}}>
                         <div className="sec-hd" style={{marginBottom:0}}>Household</div>
-                        <div style={{fontSize:13,color:"#9e9b95"}}>
+                        <div style={{fontSize:13,color:dmText2}}>
                           {allPeople.length} {allPeople.length===1?"person":"members"} · combined view
                         </div>
                       </C>
                       {/* Household mode toggle */}
                       <R style={{gap:8,alignItems:"center"}}>
-                        <span style={{fontSize:12,color:"#9e9b95",fontWeight:500}}>Combined pool</span>
+                        <span style={{fontSize:12,color:dmText2,fontWeight:500}}>Combined pool</span>
                         <div onClick={()=>upd({householdMode:!data.householdMode})}
                           style={{width:44,height:26,borderRadius:13,background:data.householdMode?"#1a1a2e":"#e0ddd4",cursor:"pointer",transition:"background 0.2s",position:"relative",flexShrink:0}}>
-                          <div style={{position:"absolute",top:3,left:data.householdMode?20:3,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
+                          <div style={{position:"absolute",top:3,left:data.householdMode?20:3,width:20,height:20,borderRadius:"50%",background:dmSurface2,transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
                         </div>
                       </R>
                     </R>
@@ -2849,10 +2860,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       {[
                         {label:"Combined income",val:totalHIncome,color:"#2f9e44"},
                         {label:"Total bills",val:totalHBills,color:"#e03131"},
-                        {label:"Household pool",val:totalHPool,color:"#1a1a2e"},
+                        {label:"Household pool",val:totalHPool,color:dmText},
                       ].map(({label,val,color})=>(
                         <C key={label} style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:14,padding:"12px 14px",gap:3}}>
-                          <div style={{fontSize:9,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase"}}>{label}</div>
+                          <div style={{fontSize:9,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase"}}>{label}</div>
                           <div style={{fontSize:16,fontWeight:700,color,letterSpacing:"-0.02em"}}>{fmt(val)}</div>
                         </C>
                       ))}
@@ -2871,13 +2882,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                             </div>
                             <C style={{flex:1,gap:3}}>
                               <R style={{justifyContent:"space-between"}}>
-                                <span style={{fontSize:12,fontWeight:600,color:"#1a1a2e"}}>{m.name}</span>
-                                <span style={{fontSize:12,color:"#9e9b95"}}>{fmtFull(inc)}/mo · {pct.toFixed(0)}%</span>
+                                <span style={{fontSize:12,fontWeight:600,color:dmText}}>{m.name}</span>
+                                <span style={{fontSize:12,color:dmText2}}>{fmtFull(inc)}/mo · {pct.toFixed(0)}%</span>
                               </R>
-                              <div style={{height:4,background:"#f0efe9",borderRadius:2,overflow:"hidden"}}>
+                              <div style={{height:4,background:dm("#22222e","#f0efe9"),borderRadius:2,overflow:"hidden"}}>
                                 <div style={{height:"100%",width:`${pct}%`,background:m.color,borderRadius:2,transition:"width 0.5s ease"}}/>
                               </div>
-                              {bills>0&&<div style={{fontSize:10,color:"#bbb9b0"}}>{fmtFull(bills)}/mo in bills</div>}
+                              {bills>0&&<div style={{fontSize:10,color:dmText3}}>{fmtFull(bills)}/mo in bills</div>}
                             </C>
                           </R>
                         );
@@ -2887,7 +2898,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 </div>
 
                 {/* Sub-nav */}
-                <div style={{display:"flex",background:"#f0efe9",borderRadius:14,padding:3,gap:2}}>
+                <div style={{display:"flex",background:dm("#22222e","#f0efe9"),borderRadius:14,padding:3,gap:2}}>
                   {[{id:"overview",label:"Overview"},{id:"members",label:"Members"},{id:"billing",label:"Bill calendar"}].map(v=>(
                     <button key={v.id} className={`seg-opt${householdView===v.id?" on":""}`}
                       onClick={()=>setHouseholdView(v.id)}
@@ -2914,15 +2925,15 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               </div>
                               <C style={{gap:1}}>
                                 <div style={{fontSize:14,fontWeight:700}}>{m.name}</div>
-                                <div style={{fontSize:11,color:"#bbb9b0"}}>{fmtFull(inc)}/mo take-home</div>
+                                <div style={{fontSize:11,color:dmText3}}>{fmtFull(inc)}/mo take-home</div>
                               </C>
                             </R>
                             {m.id!=="owner"&&(
                               <R style={{gap:6}}>
-                                <button className="rm" onClick={()=>setEditMemberId(editMemberId===m.id?null:m.id)} style={{color:"#9e9b95"}}>
+                                <button className="rm" onClick={()=>setEditMemberId(editMemberId===m.id?null:m.id)} style={{color:dmText2}}>
                                   <I n="edit-2" s={14}/>
                                 </button>
-                                <button className="rm" onClick={()=>removeMember(m.id)} style={{color:"#ccc9c0"}}>
+                                <button className="rm" onClick={()=>removeMember(m.id)} style={{color:dmText3}}>
                                   <I n="x" s={15}/>
                                 </button>
                               </R>
@@ -2935,19 +2946,19 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               {l:"Net pool",v:pool,c:pool>=0?"#1a1a2e":"#e03131"},
                             ].map(({l,v,c})=>(
                               <div key={l} style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:10,padding:"10px 12px"}}>
-                                <div style={{fontSize:9,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{l}</div>
+                                <div style={{fontSize:9,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{l}</div>
                                 <div style={{fontSize:15,fontWeight:700,color:c}}>{fmt(v)}</div>
                               </div>
                             ))}
                           </div>
-                          <R style={{justifyContent:"space-between",fontSize:12,color:"#9e9b95",paddingTop:10,borderTop:"1px solid #f0efe9"}}>
+                          <R style={{justifyContent:"space-between",fontSize:12,color:dmText2,paddingTop:10,borderTop:`1px solid ${dmBorder2}`}}>
                             <span>Daily share of pool</span>
-                            <span style={{fontWeight:700,color:"#1a1a2e"}}>{fmtFull(dailyShare)}/day</span>
+                            <span style={{fontWeight:700,color:dmText}}>{fmtFull(dailyShare)}/day</span>
                           </R>
                           {/* Inline edit form */}
                           {editMemberId===m.id&&m.id!=="owner"&&(
                             <div style={{marginTop:12,padding:12,background:darkMode?"#22222e":"#f8f7f2",borderRadius:12}}>
-                              <div style={{fontSize:11,fontWeight:700,color:"#9e9b95",marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase"}}>Edit member</div>
+                              <div style={{fontSize:11,fontWeight:700,color:dmText2,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase"}}>Edit member</div>
                               <input className="inp" placeholder="Name" defaultValue={m.name} id={`edit-name-${m.id}`} style={{marginBottom:8}}/>
                               <input className="inp" type="number" placeholder="Monthly income" defaultValue={m.monthlyIncome||0} id={`edit-income-${m.id}`} style={{marginBottom:8}}/>
                               <R style={{gap:8}}>
@@ -2971,7 +2982,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                           )}
                           {/* Bills list */}
                           {(m.recurringPayments||[]).length>0&&(
-                            <C style={{gap:0,marginTop:10,paddingTop:10,borderTop:"1px solid #f0efe9"}}>
+                            <C style={{gap:0,marginTop:10,paddingTop:10,borderTop:`1px solid ${dmBorder2}`}}>
                               {(m.recurringPayments||[]).map(r=>{
                                 const cat = CAT_MAP[r.category||"other"]||CAT_MAP.other;
                                 return (
@@ -2982,7 +2993,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                                       </div>
                                       <C style={{gap:1}}>
                                         <span style={{fontSize:13,fontWeight:500}}>{r.name}</span>
-                                        <span style={{fontSize:10,color:"#bbb9b0"}}>Due day {r.dueDay||1} · {FL[r.frequency]}</span>
+                                        <span style={{fontSize:10,color:dmText3}}>Due day {r.dueDay||1} · {FL[r.frequency]}</span>
                                       </C>
                                     </R>
                                     <R style={{gap:8,alignItems:"center"}}>
@@ -3012,7 +3023,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                           onChange={e=>setNewMember(p=>({...p,monthlyIncome:e.target.value}))} style={{flex:1}}/>
                       </R>
                       {/* Color picker */}
-                      <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8}}>Color</div>
+                      <div style={{fontSize:11,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8}}>Color</div>
                       <R style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
                         {MEMBER_COLORS.map(c=>(
                           <button key={c} onClick={()=>setNewMember(p=>({...p,color:c}))}
@@ -3048,12 +3059,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         </R>
                         <R style={{gap:8,marginBottom:14}}>
                           <C style={{flex:1}}>
-                            <div style={{fontSize:11,color:"#9e9b95",marginBottom:4}}>Due day of month</div>
+                            <div style={{fontSize:11,color:dmText2,marginBottom:4}}>Due day of month</div>
                             <input className="inp" type="number" min="1" max="31" placeholder="1" value={newMemberRec.dueDay}
                               onChange={e=>setNewMemberRec(p=>({...p,dueDay:Math.min(31,Math.max(1,parseInt(e.target.value)||1))}))}/>
                           </C>
                           <C style={{flex:1}}>
-                            <div style={{fontSize:11,color:"#9e9b95",marginBottom:4}}>Category</div>
+                            <div style={{fontSize:11,color:dmText2,marginBottom:4}}>Category</div>
                             <select className="sel" value={newMemberRec.category} onChange={e=>setNewMemberRec(p=>({...p,category:e.target.value}))}>
                               {CATS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
                             </select>
@@ -3073,11 +3084,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <C style={{gap:14}}>
                     <div className="card" style={{padding:22}}>
                       <div className="sec-hd">Bill calendar — {new Date().toLocaleDateString("en-US",{month:"long"})}</div>
-                      <div style={{fontSize:12,color:"#9e9b95",marginBottom:16,lineHeight:1.6}}>
+                      <div style={{fontSize:12,color:dmText2,marginBottom:16,lineHeight:1.6}}>
                         Bills are spread daily across your allowance — these dates show when money actually leaves your account.
                       </div>
                       {Object.keys(billingByDay).length===0?(
-                        <div style={{textAlign:"center",padding:30,color:"#bbb9b0",fontSize:13}}>No bills with due dates yet</div>
+                        <div style={{textAlign:"center",padding:30,color:dmText3,fontSize:13}}>No bills with due dates yet</div>
                       ):Array.from({length:DIM},(_,i)=>i+1).map(day=>{
                         const bills = billingByDay[day];
                         if (!bills?.length) return null;
@@ -3111,7 +3122,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                                       </div>
                                       <C style={{gap:1}}>
                                         <span style={{fontSize:12,fontWeight:600,color:isPast?"#bbb9b0":"#1a1a2e"}}>{r.name}</span>
-                                        <span style={{fontSize:10,color:"#bbb9b0"}}>{r.memberName} · {FL[r.frequency]}</span>
+                                        <span style={{fontSize:10,color:dmText3}}>{r.memberName} · {FL[r.frequency]}</span>
                                       </C>
                                     </R>
                                     <span style={{fontSize:12,fontWeight:600,color:isPast?"#ccc9c0":"#e03131"}}>−{fmtFull(r.amount)}</span>
@@ -3126,10 +3137,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
                     {/* Daily spread explanation */}
                     <div className="card-inset" style={{padding:18}}>
-                      <div style={{fontSize:12,fontWeight:700,color:"#1a1a2e",marginBottom:6}}>How spreading works</div>
-                      <div style={{fontSize:12,color:"#9e9b95",lineHeight:1.7}}>
+                      <div style={{fontSize:12,fontWeight:700,color:dmText,marginBottom:6}}>How spreading works</div>
+                      <div style={{fontSize:12,color:dmText2,lineHeight:1.7}}>
                         Your {fmtFull(householdBills)}/mo in total bills is divided across {DIM} days
-                        → <strong style={{color:"#1a1a2e"}}>{fmtFull(householdBills/DIM)}/day</strong> is already baked into your daily allowance.
+                        → <strong style={{color:dmText}}>{fmtFull(householdBills/DIM)}/day</strong> is already baked into your daily allowance.
                         Even if rent is due on the 1st, you don't lose your whole allowance that day — the cost is smoothed out all month.
                       </div>
                     </div>
@@ -3148,7 +3159,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               <div className="card" style={{padding:0,overflow:"hidden"}}>
 
                 {/* Header */}
-                <R style={{padding:"16px 20px",borderBottom:"1px solid #f0efe9",justifyContent:"space-between"}}>
+                <R style={{padding:"16px 20px",borderBottom:`1px solid ${dmBorder2}`,justifyContent:"space-between"}}>
                   <R style={{gap:10}}>
                     <div style={{width:36,height:36,borderRadius:12,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center"}}>
                       <I n="brain" s={18} c="#7048e8"/>
@@ -3174,18 +3185,18 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       {data.monthlyIncome>0&&(
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
                           {[
-                            {label:"Allowance",val:fmtFull(myAllow)+"/day",color:"#1a1a2e"},
+                            {label:"Allowance",val:fmtFull(myAllow)+"/day",color:dmText},
                             {label:"Spent today",val:fmtFull(daySpent),color:daySpent>0?"#e03131":"#bbb9b0"},
                             {label:"Pool left",val:fmtFull(poolLeft),color:poolLeft>=0?"#2f9e44":"#e03131"},
                           ].map(({label,val,color})=>(
                             <div key={label} style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,padding:"10px 12px",border:"1px solid #ece9e0"}}>
-                              <div style={{fontSize:9,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{label}</div>
+                              <div style={{fontSize:9,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{label}</div>
                               <div style={{fontSize:13,fontWeight:700,color}}>{val}</div>
                             </div>
                           ))}
                         </div>
                       )}
-                      <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Suggested</div>
+                      <div style={{fontSize:11,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Suggested</div>
                       <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:10,paddingBottom:2}}>
                         {suggestions.map(s=>(
                           <button key={s.cat} onClick={()=>setSuggestionCat(s.cat)}
@@ -3197,7 +3208,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       <C style={{gap:6}}>
                         {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).slice(0,4).map((s,i)=>(
                           <button key={i} onClick={()=>sendAiMessage(s)}
-                            style={{background:darkMode?"#22222e":"#f8f7f2",border:"1px solid #ece9e0",borderRadius:10,padding:"10px 14px",textAlign:"left",cursor:"pointer",fontSize:12,color:"#1a1a2e",fontFamily:"inherit",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                            style={{background:darkMode?"#22222e":"#f8f7f2",border:"1px solid #ece9e0",borderRadius:10,padding:"10px 14px",textAlign:"left",cursor:"pointer",fontSize:12,color:dmText,fontFamily:"inherit",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
                             {s}
                             <I n="arrow" s={12} c="#bbb9b0"/>
                           </button>
@@ -3210,11 +3221,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     const isUser = msg.role==="user";
                     return (
                       <div key={msg.id||i} style={{display:"flex",flexDirection:"column",alignItems:isUser?"flex-end":"flex-start",gap:4}}>
-                        <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:isUser?0:4,paddingRight:isUser?4:0}}>
+                        <div style={{fontSize:10,fontWeight:700,color:dmText3,letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:isUser?0:4,paddingRight:isUser?4:0}}>
                           {isUser?"You":"Advisor"}
                         </div>
                         {msg.image&&(
-                          <div style={{borderRadius:12,overflow:"hidden",maxWidth:220,border:"1px solid #f0efe9"}}>
+                          <div style={{borderRadius:12,overflow:"hidden",maxWidth:220,border:`1px solid ${dmBorder2}`}}>
                             <img src={`data:image/jpeg;base64,${msg.image}`} style={{width:"100%",display:"block"}} alt="Uploaded document"/>
                           </div>
                         )}
@@ -3235,7 +3246,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                                   ✓ Yes, update to ${msg.applyIncome.toLocaleString()}/mo
                                 </button>
                                 <button onClick={()=>setAiMessages(prev=>prev.filter(m=>m.id!==msg.id))}
-                                  style={{background:"#f8f7f2",color:"#9e9b95",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                                  style={{background:dmSurface,color:dmText2,border:"1px solid #ece9e0",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
                                   Keep current
                                 </button>
                               </div>
@@ -3248,7 +3259,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
                   {aiLoading&&(
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
-                      <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:4}}>Advisor</div>
+                      <div style={{fontSize:10,fontWeight:700,color:dmText3,letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:4}}>Advisor</div>
                       <div style={{background:darkMode?"#22222e":"#f8f7f2",border:"1px solid #ece9e0",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5,alignItems:"center"}}>
                         {[0,1,2].map(j=>(<div key={j} style={{width:7,height:7,borderRadius:"50%",background:"#bbb9b0",animation:"pulse 1.2s ease-in-out infinite",animationDelay:`${j*0.2}s`}}/>))}
                       </div>
@@ -3259,20 +3270,20 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
                 {/* Upload + camera */}
                 <R style={{padding:"0 16px 8px",gap:8,borderTop:"1px solid #f8f7f2"}}>
-                  <label style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#7048e8",flexShrink:0}}>
+                  <label style={{display:"flex",alignItems:"center",gap:6,background:dmSurface,border:"1px solid #ece9e0",borderRadius:12,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#7048e8",flexShrink:0}}>
                     <I n="upload" s={13} c="#7048e8"/> Upload
                     <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
                   </label>
                   <button onClick={()=>setCameraOpen(true)}
-                    style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#1a1a2e",flexShrink:0,fontFamily:"inherit"}}>
+                    style={{display:"flex",alignItems:"center",gap:6,background:dmSurface,border:"1px solid #ece9e0",borderRadius:12,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:600,color:dmText,flexShrink:0,fontFamily:"inherit"}}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     Camera
                   </button>
-                  {uploadedFile&&<div style={{flex:1,fontSize:11,color:"#bbb9b0",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{uploadedFile}</div>}
+                  {uploadedFile&&<div style={{flex:1,fontSize:11,color:dmText3,fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{uploadedFile}</div>}
                 </R>
 
                 {/* Input — always visible, no gate */}
-                <div style={{padding:"8px 16px 16px",borderTop:"1px solid #f0efe9"}}>
+                <div style={{padding:"8px 16px 16px",borderTop:`1px solid ${dmBorder2}`}}>
                   <R style={{gap:8}}>
                     <input className="inp" placeholder="Ask anything — or say 'I spent $X on Y'…" value={aiInput}
                       onChange={e=>setAiInput(e.target.value)}
@@ -3292,7 +3303,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).slice(0,3).map((s,i)=>(
                     <button key={i} onClick={()=>sendAiMessage(s)}
-                      style={{background:"#fff",border:"1px solid #ece9e0",borderRadius:20,padding:"8px 14px",fontSize:12,color:"#6b6965",fontFamily:"inherit",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
+                      style={{background:dmSurface2,border:"1px solid #ece9e0",borderRadius:20,padding:"8px 14px",fontSize:12,color:"#6b6965",fontFamily:"inherit",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
                       {s.length>32?s.slice(0,32)+"…":s}
                     </button>
                   ))}
@@ -3309,7 +3320,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div className="hero-band" style={{background:"linear-gradient(90deg,#7048e8,#2f9e44)"}}/>
                 <div style={{marginTop:8}}>
                   <div style={{fontSize:24,fontWeight:800,marginBottom:6}}>Financial Education 📚</div>
-                  <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.6}}>Everything you need to build real financial confidence — from budgeting basics to retirement planning. Tap any question to learn more, then ask the AI Advisor to go deeper.</div>
+                  <div style={{fontSize:14,color:dmText2,lineHeight:1.6}}>Everything you need to build real financial confidence — from budgeting basics to retirement planning. Tap any question to learn more, then ask the AI Advisor to go deeper.</div>
                 </div>
               </div>
               {[
@@ -3362,7 +3373,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div className="hero-band" style={{background:"#1a1a2e"}}/>
                 <div style={{marginTop:8}}>
                   <div className="sec-hd">Monthly take-home</div>
-                  <div style={{fontSize:13,color:"#9e9b95",marginBottom:16,lineHeight:1.6}}>Your after-tax income sources — these add up to your monthly pool.</div>
+                  <div style={{fontSize:13,color:dmText2,marginBottom:16,lineHeight:1.6}}>Your after-tax income sources — these add up to your monthly pool.</div>
 
                   {/* Income sources list */}
                   {(data.incomeSources||[]).length>0&&(
@@ -3370,11 +3381,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       {(data.incomeSources||[]).map(src=>(
                         <R key={src.id} style={{justifyContent:"space-between",alignItems:"center",background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,padding:"10px 14px"}}>
                           <C style={{gap:2}}>
-                            <span style={{fontSize:13,fontWeight:600,color:"#1a1a2e"}}>{src.label}</span>
-                            <span style={{fontSize:12,color:"#9e9b95"}}>{fmtFull(src.amount)}/mo</span>
+                            <span style={{fontSize:13,fontWeight:600,color:dmText}}>{src.label}</span>
+                            <span style={{fontSize:12,color:dmText2}}>{fmtFull(src.amount)}/mo</span>
                           </C>
                           <R style={{gap:8}}>
-                            <button className="rm" onClick={()=>{setNewIncSrc({label:src.label,amount:src.amount,id:src.id});setEditInc("src");}} style={{color:"#9e9b95"}}><I n="edit-2" s={13}/></button>
+                            <button className="rm" onClick={()=>{setNewIncSrc({label:src.label,amount:src.amount,id:src.id});setEditInc("src");}} style={{color:dmText2}}><I n="edit-2" s={13}/></button>
                             <button className="rm" onClick={()=>{
                               const srcs=(data.incomeSources||[]).filter(s=>s.id!==src.id);
                               upd({incomeSources:srcs,monthlyIncome:srcs.reduce((s,x)=>s+x.amount,0)});
@@ -3387,9 +3398,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
                   {/* Total */}
                   {(data.incomeSources||[]).length>0&&(
-                    <R style={{justifyContent:"space-between",alignItems:"baseline",marginBottom:14,paddingBottom:14,borderBottom:"1px solid #f0efe9"}}>
-                      <div style={{fontSize:36,fontWeight:300,letterSpacing:"-0.04em",color:"#1a1a2e"}}>{fmtFull(data.monthlyIncome)}</div>
-                      <div style={{fontSize:12,color:"#bbb9b0"}}>{fmtFull(myAllow)}/day</div>
+                    <R style={{justifyContent:"space-between",alignItems:"baseline",marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${dmBorder2}`}}>
+                      <div style={{fontSize:36,fontWeight:300,letterSpacing:"-0.04em",color:dmText}}>{fmtFull(data.monthlyIncome)}</div>
+                      <div style={{fontSize:12,color:dmText3}}>{fmtFull(myAllow)}/day</div>
                     </R>
                   )}
 
@@ -3417,7 +3428,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     </C>
                   ):(data.incomeSources||[]).length===0?(
                     <C style={{gap:8}}>
-                      <div style={{fontSize:13,color:"#9e9b95",marginBottom:4}}>No income sources yet — add one to get started.</div>
+                      <div style={{fontSize:13,color:dmText2,marginBottom:4}}>No income sources yet — add one to get started.</div>
                       <R style={{gap:8}}>
                         <input className="inp" placeholder="Source (e.g. Job, Freelance)" value={newIncSrc.label} onChange={e=>setNewIncSrc(p=>({...p,label:e.target.value}))} style={{flex:2}}/>
                         <input className="inp" type="number" placeholder="$/mo" value={newIncSrc.amount} onChange={e=>setNewIncSrc(p=>({...p,amount:e.target.value}))} style={{flex:1}}/>
@@ -3467,7 +3478,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     {l:`Daily allowance (÷${DIM})`,v:myAllow,                  c:"#9e9b95",italic:true},
                   ].map(({l,v,c,s,bold,sep,italic})=>(
                     <R key={l} style={{justifyContent:"space-between",padding:"10px 0",borderTop:sep?"1px solid #f0efe9":"none",marginTop:sep?4:0}}>
-                      <span style={{fontSize:13,color:"#9e9b95",fontStyle:italic?"italic":"normal"}}>{l}</span>
+                      <span style={{fontSize:13,color:dmText2,fontStyle:italic?"italic":"normal"}}>{l}</span>
                       <span style={{fontSize:14,fontWeight:bold?800:500,color:c}}>{s}{fmtFull(v)}</span>
                     </R>
                   ))
@@ -3479,7 +3490,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div className="card" style={{padding:22}}>
                   <R style={{justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                     <div className="sec-hd" style={{marginBottom:0}}>Monthly income history</div>
-                    <div style={{fontSize:11,color:"#bbb9b0"}}>Tell the AI to update any month</div>
+                    <div style={{fontSize:11,color:dmText3}}>Tell the AI to update any month</div>
                   </R>
                   {Object.entries(data.monthlyIncomes||{})
                     .sort(([a],[b]) => b.localeCompare(a))
@@ -3506,7 +3517,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
               <div className="card" style={{padding:22,borderColor:"#ffc9c9",borderWidth:1.5}}>
                 <div style={{fontSize:13,fontWeight:700,color:"#e03131",marginBottom:6}}>Danger zone</div>
-                <div style={{fontSize:13,color:"#bbb9b0",marginBottom:16}}>Clear all spending history. Income and recurring stay.</div>
+                <div style={{fontSize:13,color:dmText3,marginBottom:16}}>Clear all spending history. Income and recurring stay.</div>
                 <button className="btn-ghost" style={{borderColor:"#ffc9c9",color:"#e03131",fontSize:12}}
                   onClick={()=>{if(window.confirm("Clear all spending history?"))upd({dailyEntries:{},plaidTransactions:[]});}}>
                   Clear history
@@ -3527,17 +3538,17 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div style={{textAlign:"center",padding:"20px 0"}}>
                   <div style={{fontSize:48,marginBottom:16}}>🙏</div>
                   <div style={{fontSize:22,fontWeight:800,marginBottom:8}}>Thank you!</div>
-                  <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.6,marginBottom:24}}>Your feedback helps us make DayFlow better for everyone. We review every submission weekly.</div>
+                  <div style={{fontSize:14,color:dmText2,lineHeight:1.6,marginBottom:24}}>Your feedback helps us make DayFlow better for everyone. We review every submission weekly.</div>
                   <button onClick={()=>setShowFeedback(false)} style={{background:"#1a1a2e",color:"#fff",border:"none",borderRadius:14,padding:"14px 32px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Done</button>
                 </div>
               ) : (
                 <>
                   <div style={{fontSize:20,fontWeight:800,marginBottom:4}}>Share Feedback 💬</div>
-                  <div style={{fontSize:13,color:"#9e9b95",marginBottom:20}}>Tell us what's working, what's broken, or what you wish DayFlow could do.</div>
+                  <div style={{fontSize:13,color:dmText2,marginBottom:20}}>Tell us what's working, what's broken, or what you wish DayFlow could do.</div>
 
                   {/* Star rating */}
                   <div style={{marginBottom:18}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>How would you rate DayFlow?</div>
+                    <div style={{fontSize:12,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>How would you rate DayFlow?</div>
                     <div style={{display:"flex",gap:8}}>
                       {[1,2,3,4,5].map(s=>(
                         <button key={s} onClick={()=>setFeedbackRating(s)}
@@ -3550,7 +3561,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
                   {/* Category */}
                   <div style={{marginBottom:16}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>What's this about?</div>
+                    <div style={{fontSize:12,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>What's this about?</div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                       {[
                         {id:"general",    label:"General"},
@@ -3623,10 +3634,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               maxWidth:520,
               margin:"0 auto",
               zIndex:45,
-              background:"#fff",
+              background:dmSurface2,
               borderRadius:24,
               boxShadow:"0 -2px 0 rgba(0,0,0,0.04),0 8px 40px rgba(0,0,0,0.16)",
-              border:"1px solid #f0efe9",
+              border:`1px solid ${dmBorder2}`,
               overflow:"hidden",
               transformOrigin:"bottom center",
               animation:"menuPop 0.2s cubic-bezier(.34,1.56,.64,1)",
@@ -3647,25 +3658,25 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   onMouseEnter={e=>e.currentTarget.style.background="#f8f7f2"}
                   onMouseLeave={e=>e.currentTarget.style.background="none"}
                 >
-                  <div style={{width:42,height:42,borderRadius:13,background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <div style={{width:42,height:42,borderRadius:13,background:dm("#22222e","#f0efe9"),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                     <I n={item.icon} s={20} c="#1a1a2e"/>
                   </div>
                   <C style={{gap:2,flex:1}}>
-                    <div style={{fontSize:15,fontWeight:700,color:"#1a1a2e"}}>{item.label}</div>
-                    <div style={{fontSize:12,color:"#9e9b95"}}>{item.sub}</div>
+                    <div style={{fontSize:15,fontWeight:700,color:dmText}}>{item.label}</div>
+                    <div style={{fontSize:12,color:dmText2}}>{item.sub}</div>
                   </C>
                   <I n="chevron" s={16} c="#ccc9c0"/>
                 </button>
               ))}
               {/* Feedback button */}
               <button onClick={()=>{setMenuOpen(false);setFeedbackStep('form');setFeedbackRating(0);setFeedbackText('');setFeedbackCat('general');setShowFeedback(true);}}
-                style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"18px 20px",background:"none",border:"none",borderTop:"1px solid #f0efe9",cursor:"pointer",fontFamily:"inherit",transition:"background 0.15s",textAlign:"left"}}
+                style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"18px 20px",background:"none",border:"none",borderTop:`1px solid ${dmBorder2}`,cursor:"pointer",fontFamily:"inherit",transition:"background 0.15s",textAlign:"left"}}
                 onMouseEnter={e=>e.currentTarget.style.background="#f8f7f2"}
                 onMouseLeave={e=>e.currentTarget.style.background="none"}>
                 <div style={{width:42,height:42,borderRadius:13,background:"#fff3e0",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20}}>💬</div>
                 <C style={{gap:2,flex:1}}>
-                  <div style={{fontSize:15,fontWeight:700,color:"#1a1a2e"}}>Share Feedback</div>
-                  <div style={{fontSize:12,color:"#9e9b95"}}>Help us improve DayFlow</div>
+                  <div style={{fontSize:15,fontWeight:700,color:dmText}}>Share Feedback</div>
+                  <div style={{fontSize:12,color:dmText2}}>Help us improve DayFlow</div>
                 </C>
                 <I n="chevron" s={16} c="#ccc9c0"/>
               </button>
@@ -3682,12 +3693,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <C style={{alignItems:"center",padding:"32px 0 16px",gap:16}}>
                   <div style={{width:48,height:48,border:"3px solid #f0efe9",borderTopColor:"#1a1a2e",borderRadius:"50%"}} className="spin"/>
                   <div style={{fontSize:17,fontWeight:800,letterSpacing:"-0.02em"}}>Connecting to {selBank}…</div>
-                  <div style={{fontSize:14,color:"#bbb9b0",textAlign:"center"}}>Securely syncing your transactions</div>
+                  <div style={{fontSize:14,color:dmText3,textAlign:"center"}}>Securely syncing your transactions</div>
                 </C>
               ):step===0?(
                 <>
                   <div style={{fontSize:20,fontWeight:800,letterSpacing:"-0.03em",marginBottom:6}}>Choose your bank</div>
-                  <div style={{fontSize:14,color:"#9e9b95",marginBottom:22}}>Select your institution to connect securely.</div>
+                  <div style={{fontSize:14,color:dmText2,marginBottom:22}}>Select your institution to connect securely.</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:20}}>
                     {BANKS.map(b=>(
                       <button key={b} className={`bank-opt${selBank===b?" on":""}`} onClick={()=>setSelBank(b)}>
@@ -3703,9 +3714,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               ):(
                 <>
                   <div style={{fontSize:20,fontWeight:800,letterSpacing:"-0.03em",marginBottom:6}}>Connect {selBank}</div>
-                  <div style={{fontSize:14,color:"#9e9b95",marginBottom:22,lineHeight:1.6}}>In production, Plaid's secure hosted UI appears here — DayFlow never touches your credentials.</div>
+                  <div style={{fontSize:14,color:dmText2,marginBottom:22,lineHeight:1.6}}>In production, Plaid's secure hosted UI appears here — DayFlow never touches your credentials.</div>
                   <C style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:18,padding:20,gap:10,marginBottom:20}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Plaid Sandbox</div>
+                    <div style={{fontSize:11,fontWeight:700,color:dmText3,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Plaid Sandbox</div>
                     <input className="inp" placeholder="Username" defaultValue="user_good"/>
                     <input className="inp" type="password" placeholder="Password" defaultValue="pass_good"/>
                   </C>
