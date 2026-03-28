@@ -586,7 +586,11 @@ export default function App() {
   const over       = todayLeft < 0;
   // Dynamic accent: green=on track, amber=80%+, red=over
   const accent     = over ? "#e03131" : pctDay > 0.8 ? "#f08c00" : "#2f9e44";
-  const accentBg   = over ? "#fff5f5" : pctDay > 0.8 ? "#fff9db" : "#ebfbee";
+  const accentBg   = over
+    ? (darkMode ? "rgba(224,49,49,0.15)" : "#fff5f5")
+    : pctDay > 0.8
+      ? (darkMode ? "rgba(240,140,0,0.15)" : "#fff9db")
+      : (darkMode ? "rgba(47,158,68,0.15)" : "#ebfbee");
   const needsSetup = activeData.monthlyIncome === 0;
 
   const allTodayTx = [...(entry.transactions||[]).map(t=>({...t,source:"manual"})), ...ptx.filter(t=>t.date===TODAY)];
@@ -1338,7 +1342,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
   );
 
   return (
-      <div style={{minHeight:"100vh",background:darkMode?"#0f0f14":"#f0efe9",fontFamily:"'Plus Jakarta Sans','Outfit',sans-serif",color:darkMode?"#e8e6e0":"#1a1a2e",transition:"background 0.3s ease, color 0.3s ease"}}>
+      <div style={{minHeight:"100vh",background:darkMode?"#0f0f14":"#f0efe9",fontFamily:"'Plus Jakarta Sans','Outfit',sans-serif",color:darkMode?"#e8e6e0":dmText,transition:"background 0.3s ease, color 0.3s ease"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -1353,7 +1357,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           --bg-card: ${darkMode?"#1c1c26":"#ffffff"};
           --bg-surface: ${darkMode?"#15151f":"#f8f7f2"};
           --bg-surface2: ${darkMode?"#22222e":"#f0efe9"};
-          --text: ${darkMode?"#e8e6e0":"#1a1a2e"};
+          --text: ${darkMode?"#e8e6e0":dmText};
           --text2: ${darkMode?"#8a8898":"#9e9b95"};
           --text3: ${darkMode?"#5a5a72":"#bbb9b0"};
           --border: ${darkMode?"rgba(255,255,255,0.08)":"#e8e5dc"};
@@ -1380,23 +1384,23 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         .hero-band{position:absolute;top:0;left:0;right:0;height:5px;border-radius:28px 28px 0 0;transition:background 0.5s ease;}
 
         /* Inputs */
-        .inp{width:100%;background:${darkMode?"#15151f":"#f8f7f2"};border:1.5px solid ${darkMode?"rgba(255,255,255,0.1)":"#e8e5dc"};border-radius:14px;padding:13px 16px;font-size:14px;color:${darkMode?"#e8e6e0":"#1a1a2e"};outline:none;transition:all 0.15s;}
-        .inp:focus{border-color:${darkMode?"#4a9eff":"#1a1a2e"};background:${darkMode?"#1c1c26":"#fff"};box-shadow:0 0 0 3px ${darkMode?"rgba(74,158,255,0.15)":"rgba(26,26,46,0.06)"};}
-        .sel{background:${darkMode?"#15151f":"#f8f7f2"};border:1.5px solid ${darkMode?"rgba(255,255,255,0.1)":"#e8e5dc"};border-radius:14px;padding:13px 16px;font-size:14px;color:${darkMode?"#e8e6e0":"#1a1a2e"};outline:none;cursor:pointer;transition:border-color 0.15s;}
-        .sel:focus{border-color:${darkMode?"#4a9eff":"#1a1a2e"};}
+        .inp{width:100%;background:${darkMode?"#15151f":"#f8f7f2"};border:1.5px solid ${darkMode?"rgba(255,255,255,0.1)":"#e8e5dc"};border-radius:14px;padding:13px 16px;font-size:14px;color:${darkMode?"#e8e6e0":dmText};outline:none;transition:all 0.15s;}
+        .inp:focus{border-color:${darkMode?"#4a9eff":dmText};background:${darkMode?"#1c1c26":"#fff"};box-shadow:0 0 0 3px ${darkMode?"rgba(74,158,255,0.15)":"rgba(26,26,46,0.06)"};}
+        .sel{background:${darkMode?"#15151f":"#f8f7f2"};border:1.5px solid ${darkMode?"rgba(255,255,255,0.1)":"#e8e5dc"};border-radius:14px;padding:13px 16px;font-size:14px;color:${darkMode?"#e8e6e0":dmText};outline:none;cursor:pointer;transition:border-color 0.15s;}
+        .sel:focus{border-color:${darkMode?"#4a9eff":dmText};}
         input::placeholder{color:${darkMode?"#4a4a5e":"#bbb9b0"};}
 
         /* Buttons */
-        .btn{background:${darkMode?"#2f9e44":"#1a1a2e"};color:#fff;border:none;border-radius:14px;padding:13px 22px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+        .btn{background:${darkMode?"#2f9e44":dmText};color:#fff;border:none;border-radius:14px;padding:13px 22px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:8px;white-space:nowrap;}
         .btn:hover{background:${darkMode?"#37b24d":"#2d2d4e"};transform:translateY(-1px);box-shadow:0 4px 12px ${darkMode?"rgba(47,158,68,0.35)":"rgba(26,26,46,0.25)"};}
         .btn:active{transform:translateY(0);}
         .btn-ghost{background:transparent;border:1.5px solid ${darkMode?"rgba(255,255,255,0.12)":"#e0ddd4"};border-radius:14px;padding:11px 18px;font-size:13px;font-weight:600;color:${darkMode?"#9e9b95":"#6b6965"};cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px;}
-        .btn-ghost:hover{border-color:${darkMode?"#e8e6e0":"#1a1a2e"};color:${darkMode?"#e8e6e0":"#1a1a2e"};}
+        .btn-ghost:hover{border-color:${darkMode?"#e8e6e0":dmText};color:${darkMode?"#e8e6e0":dmText};}
 
         /* Segmented control */
         .seg{display:flex;background:${darkMode?"#15151f":"#f0efe9"};border-radius:12px;padding:3px;gap:2px;}
         .seg-opt{background:none;border:none;cursor:pointer;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:600;color:${darkMode?"#4a4a5e":"#9e9b95"};transition:all 0.15s;font-family:inherit;}
-        .seg-opt.on{background:${darkMode?"#1c1c26":"#fff"};color:${darkMode?"#e8e6e0":"#1a1a2e"};box-shadow:0 1px 4px rgba(0,0,0,${darkMode?"0.4":"0.1"});}
+        .seg-opt.on{background:${darkMode?"#1c1c26":"#fff"};color:${darkMode?"#e8e6e0":dmText};box-shadow:0 1px 4px rgba(0,0,0,${darkMode?"0.4":"0.1"});}
 
         /* Transaction rows */
         .tx-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${darkMode?"rgba(255,255,255,0.06)":"#f0efe9"};}
@@ -1407,9 +1411,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         /* Bottom nav */
         .nav-bar{position:fixed;bottom:0;left:0;right:0;background:${darkMode?"rgba(15,15,20,0.92)":"rgba(240,239,233,0.92)"};backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-top:1px solid ${darkMode?"rgba(255,255,255,0.07)":"rgba(0,0,0,0.07)"};z-index:50;}
         .nav-btn{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:14px;transition:all 0.15s;font-family:inherit;color:${darkMode?"#3a3a5e":"#bbb9b0"};}
-        .nav-btn.on{color:${darkMode?"#e8e6e0":"#1a1a2e"};}
+        .nav-btn.on{color:${darkMode?"#e8e6e0":dmText};}
         .nav-lbl{font-size:9.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;}
-        .nav-dot{width:4px;height:4px;border-radius:50%;background:${darkMode?"#2f9e44":"#1a1a2e"};opacity:0;transition:opacity 0.15s;margin-top:1px;}
+        .nav-dot{width:4px;height:4px;border-radius:50%;background:${darkMode?"#2f9e44":dmText};opacity:0;transition:opacity 0.15s;margin-top:1px;}
         .nav-btn.on .nav-dot{opacity:1;}
 
         /* Progress */
@@ -1422,9 +1426,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         .handle{width:40px;height:4px;background:${darkMode?"rgba(255,255,255,0.1)":"#e0ddd4"};border-radius:2px;margin:0 auto 24px;}
 
         /* Bank option */
-        .bank-opt{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:16px;border:1.5px solid ${darkMode?"rgba(255,255,255,0.1)":"#e8e5dc"};background:${darkMode?"#15151f":"#fff"};cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;color:${darkMode?"#e8e6e0":"#1a1a2e"};transition:all 0.15s;text-align:left;width:100%;}
+        .bank-opt{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:16px;border:1.5px solid ${darkMode?"rgba(255,255,255,0.1)":"#e8e5dc"};background:${darkMode?"#15151f":"#fff"};cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;color:${darkMode?"#e8e6e0":dmText};transition:all 0.15s;text-align:left;width:100%;}
         .bank-opt:hover{border-color:${darkMode?"#4a9eff":"#9e9b95"};}
-        .bank-opt.on{border-color:${darkMode?"#2f9e44":"#1a1a2e"};background:${darkMode?"#2f9e44":"#1a1a2e"};color:#fff;}
+        .bank-opt.on{border-color:${darkMode?"#2f9e44":dmText};background:${darkMode?"#2f9e44":dmText};color:#fff;}
 
         /* Section header */
         .sec-hd{font-size:11px;font-weight:700;color:${darkMode?"#3a3a5e":"#bbb9b0"};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px;}
@@ -1666,7 +1670,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <div style={{fontSize:44,fontWeight:800,color:dmText,letterSpacing:"-0.02em"}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
                   <div style={{fontSize:12,color:dmText3,marginTop:4}}>per day to spend freely</div>
                 </div>
-                <div style={{background:"#f0fff4",borderRadius:14,padding:14,marginBottom:18,border:"1px solid #b2f2bb",fontSize:13,color:"#1a6b2a",lineHeight:1.6}}>
+                <div style={{background:darkMode?"rgba(47,158,68,0.15)":"#f0fff4",borderRadius:14,padding:14,marginBottom:18,border:"1px solid #b2f2bb",fontSize:13,color:"#1a6b2a",lineHeight:1.6}}>
                   💡 <strong>Quick tips:</strong> Log spending on the <strong>Today</strong> tab. Add bills in <strong>Bills</strong>. Ask your <strong>AI Advisor</strong> anything. Explore <strong>Financial Education</strong> in the More menu for free guides on 401k, Roth IRA, HSA, and more.
                 </div>
                 <button onClick={()=>{setShowOnboarding(false);localStorage.setItem(ONBOARD_KEY,"1");}} style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Start tracking →</button>
@@ -1917,7 +1921,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   {/* Stats */}
                   <C style={{flex:1,gap:0}}>
                     <div style={{fontSize:10,fontWeight:700,color:dmText2,letterSpacing:"0.08em",marginBottom:4}}>LEFT TODAY</div>
-                    <div style={{fontSize:36,fontWeight:300,letterSpacing:"-0.05em",color: over?"#e03131":"#1a1a2e",lineHeight:1,marginBottom:2}}>
+                    <div style={{fontSize:36,fontWeight:300,letterSpacing:"-0.05em",color:over?"#e03131":dmText,lineHeight:1,marginBottom:2}}>
                       {over?"−":""}{fmtFull(Math.abs(todayLeft))}
                     </div>
                     <div style={{fontSize:12,color:dmText3,marginBottom:20}}>{fmtFull(myAllow)} daily allowance</div>
@@ -1925,7 +1929,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     <div style={{height:1,background:dm("#22222e","#f0efe9"),marginBottom:16}}/>
 
                     <div style={{fontSize:10,fontWeight:700,color:dmText2,letterSpacing:"0.08em",marginBottom:4}}>MONTH POOL</div>
-                    <div style={{fontSize:26,fontWeight:300,letterSpacing:"-0.04em",color:poolLeft<0?"#e03131":"#1a1a2e",lineHeight:1,marginBottom:2}}>
+                    <div style={{fontSize:26,fontWeight:300,letterSpacing:"-0.04em",color:poolLeft<0?"#e03131":dmText,lineHeight:1,marginBottom:2}}>
                       {poolLeft<0?"−":""}{fmt(Math.abs(poolLeft))}
                     </div>
                     <div style={{fontSize:12,color:dmText3}}>{dLeft} days remaining</div>
@@ -2088,7 +2092,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     )}
                   </div>
                   <button onClick={goToNextMonth}
-                    style={{background:dmSurface2,border:"1px solid #e8e5dc",borderRadius:12,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",color:isCurrentMonth?"#e0ddd4":"#1a1a2e",pointerEvents:isCurrentMonth?"none":"auto"}}>
+                    style={{background:dmSurface2,border:"1px solid #e8e5dc",borderRadius:12,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",color:isCurrentMonth?"#e0ddd4":dmText,pointerEvents:isCurrentMonth?"none":"auto"}}>
                     →
                   </button>
                 </R>
@@ -2104,7 +2108,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     ))}
                   </R>
                   <div className="prog-track">
-                    <div className="prog-fill" style={{width:`${Math.min(100,monthPool>0?(viewMonthSpent/monthPool)*100:0)}%`,background:viewPoolLeft<0?"#e03131":"#1a1a2e"}}/>
+                    <div className="prog-fill" style={{width:`${Math.min(100,monthPool>0?(viewMonthSpent/monthPool)*100:0)}%`,background:viewPoolLeft<0?"#e03131":dmText}}/>
                   </div>
                   <R style={{justifyContent:"space-between",marginTop:6}}>
                     <span style={{fontSize:11,color:dmText3}}>Day 1</span>
@@ -2467,7 +2471,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         </C>
                       </R>
                       <div className="prog-track">
-                        <div className="prog-fill" style={{width:`${pct*100}%`,background:pct>1?"#e03131":pct>0.8?"#f08c00":"#1a1a2e"}}/>
+                        <div className="prog-fill" style={{width:`${pct*100}%`,background:pct>1?"#e03131":pct>0.8?"#f08c00":dmText}}/>
                       </div>
                       {ax.slice(0,3).map((tx,i)=>{
                         const io=tx.type==="expense"||(tx.source==="plaid"&&tx.amount>0);
@@ -2639,7 +2643,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         <div style={{fontSize:12,fontWeight:600,color:dmText2}}>Spendable pool after all recurring</div>
                         <div style={{fontSize:11,color:dmText3}}>{fmtFull(myAllow)}/day · {DIM} days this month</div>
                       </C>
-                      <div style={{fontSize:22,fontWeight:700,color:myPoolReal>=0?"#1a1a2e":"#e03131"}}>{fmtFull(myPoolReal)}</div>
+                      <div style={{fontSize:22,fontWeight:700,color:myPoolReal>=0?dmText:"#e03131"}}>{fmtFull(myPoolReal)}</div>
                     </R>
                   </div>
                 )}
@@ -2671,13 +2675,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                           <div key={day} style={{marginBottom:14}}>
                             <R style={{gap:10,marginBottom:8}}>
                               <div style={{width:36,height:36,borderRadius:11,background:isToday?"#1a1a2e":isPast?"#f0efe9":"#f8f7f2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                                <span style={{fontSize:13,fontWeight:800,color:isToday?"#fff":isPast?"#bbb9b0":"#1a1a2e"}}>{day}</span>
+                                <span style={{fontSize:13,fontWeight:800,color:isToday?"#fff":isPast?dmText3:dmText}}>{day}</span>
                               </div>
                               <R style={{flex:1,justifyContent:"space-between",alignItems:"center"}}>
-                                <span style={{fontSize:13,fontWeight:600,color:isPast?"#bbb9b0":"#1a1a2e"}}>
+                                <span style={{fontSize:13,fontWeight:600,color:isPast?dmText3:dmText}}>
                                   {isToday?"Today":"Day "}{isToday?"":day}
                                 </span>
-                                <span style={{fontSize:13,fontWeight:700,color:isPast?"#bbb9b0":"#e03131"}}>−{fmtFull(dayTotal)}</span>
+                                <span style={{fontSize:13,fontWeight:700,color:isPast?dmText3:"#e03131"}}>−{fmtFull(dayTotal)}</span>
                               </R>
                             </R>
                             {bills.map((r,i)=>{
@@ -2691,11 +2695,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                                         <I n={cat.icon} s={11} c={cat.fg}/>
                                       </div>
                                       <C style={{gap:1}}>
-                                        <span style={{fontSize:12,fontWeight:600,color:isPast?"#bbb9b0":"#1a1a2e"}}>{r.name}</span>
+                                        <span style={{fontSize:12,fontWeight:600,color:isPast?dmText3:dmText}}>{r.name}</span>
                                         <span style={{fontSize:10,color:dmText3}}>{FL2[r.frequency]||"/mo"} · due day {r.dueDay||1}</span>
                                       </C>
                                     </R>
-                                    <span style={{fontSize:12,fontWeight:600,color:isPast?"#ccc9c0":"#e03131"}}>−{fmtFull(r.amount)}</span>
+                                    <span style={{fontSize:12,fontWeight:600,color:isPast?dmText3:"#e03131"}}>−{fmtFull(r.amount)}</span>
                                   </R>
                                 </R>
                               );
@@ -2760,7 +2764,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     {[{l:"Transactions imported",v:data.plaidTransactions.length,red:false},{l:"Month spending from bank",v:"−"+fmtFull(ptx.filter(t=>t.date?.startsWith(thisMonth())).reduce((s,t)=>s+Math.max(0,t.amount),0)),red:true}].map(({l,v,red})=>(
                       <R key={l} style={{justifyContent:"space-between",padding:"13px 0",borderTop:`1px solid ${dmBorder2}`}}>
                         <span style={{fontSize:13,color:dmText2}}>{l}</span>
-                        <span style={{fontSize:14,fontWeight:700,color:red?"#e03131":"#1a1a2e"}}>{v}</span>
+                        <span style={{fontSize:14,fontWeight:700,color:red?"#e03131":dmText}}>{v}</span>
                       </R>
                     ))}
                   </div>
@@ -3099,13 +3103,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                           <div key={day} style={{marginBottom:14}}>
                             <R style={{gap:10,marginBottom:8}}>
                               <div style={{width:36,height:36,borderRadius:11,background:isToday?"#1a1a2e":isPast?"#f0efe9":"#f8f7f2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                                <span style={{fontSize:13,fontWeight:800,color:isToday?"#fff":isPast?"#bbb9b0":"#1a1a2e"}}>{day}</span>
+                                <span style={{fontSize:13,fontWeight:800,color:isToday?"#fff":isPast?dmText3:dmText}}>{day}</span>
                               </div>
                               <R style={{flex:1,justifyContent:"space-between",alignItems:"center"}}>
-                                <span style={{fontSize:13,fontWeight:600,color:isPast?"#bbb9b0":"#1a1a2e"}}>
+                                <span style={{fontSize:13,fontWeight:600,color:isPast?dmText3:dmText}}>
                                   {isToday?"Today, day ":isPast?"Day ":"Upcoming day "}{day}
                                 </span>
-                                <span style={{fontSize:13,fontWeight:700,color:isPast?"#bbb9b0":"#e03131"}}>
+                                <span style={{fontSize:13,fontWeight:700,color:isPast?dmText3:"#e03131"}}>
                                   −{fmtFull(dayTotal)}
                                 </span>
                               </R>
@@ -3121,11 +3125,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                                         <I n={cat.icon} s={11} c={cat.fg}/>
                                       </div>
                                       <C style={{gap:1}}>
-                                        <span style={{fontSize:12,fontWeight:600,color:isPast?"#bbb9b0":"#1a1a2e"}}>{r.name}</span>
+                                        <span style={{fontSize:12,fontWeight:600,color:isPast?dmText3:dmText}}>{r.name}</span>
                                         <span style={{fontSize:10,color:dmText3}}>{r.memberName} · {FL[r.frequency]}</span>
                                       </C>
                                     </R>
-                                    <span style={{fontSize:12,fontWeight:600,color:isPast?"#ccc9c0":"#e03131"}}>−{fmtFull(r.amount)}</span>
+                                    <span style={{fontSize:12,fontWeight:600,color:isPast?dmText3:"#e03131"}}>−{fmtFull(r.amount)}</span>
                                   </R>
                                 </R>
                               );
@@ -3232,7 +3236,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         {(msg.content||msg.isPaystub)&&(
                           <div style={{
                             maxWidth:"85%",padding:"12px 16px",borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
-                            background:isUser?"#1a1a2e":"#f8f7f2",color:isUser?"#fff":"#1a1a2e",
+                            background:isUser?"#1a1a2e":"#f8f7f2",color:isUser?"#fff":dmText,
                             fontSize:13,lineHeight:1.65,border:isUser?"none":"1px solid #ece9e0",
                           }}>
                             {msg.isPaystub&&!msg.image ? "Analyzing your document…"
