@@ -1228,7 +1228,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               strokeDasharray="360" strokeDashoffset="360"
               style={{animation:"ghostDrawSlow 3.2s cubic-bezier(0.4,0,0.2,1) 0.4s forwards"}}/>
             {/* Solid active portion — same path the dot rides */}
-            <path id="wavePath"
+            <path
               d="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"
               stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round" fill="none"
               strokeDasharray="320" strokeDashoffset="320"
@@ -1243,9 +1243,8 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 keyPoints="0;1"
                 keyTimes="0;1"
                 keySplines="0.25 0.46 0.45 0.94"
-              >
-                <mpath href="#wavePath"/>
-              </animateMotion>
+                path="M5 50 Q28 12 55 50 Q82 88 110 50 Q138 12 165 50"
+              />
             </circle>
           </svg>
         </div>
@@ -1264,7 +1263,6 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         </div>
 
       </div>
-    </div>
     </div>
   )}
 
