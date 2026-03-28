@@ -7,6 +7,7 @@ const STORE_KEY = "dayflow_v3";
 const ONBOARD_KEY = "dayflow_onboarded_v1";
 const DEFAULTS  = {
   monthlyIncome: 0,
+  monthlyIncomes: {}, // { "YYYY-MM": number } — historical income per month
   recurringPayments: [],
   dailyEntries: {},
   plaidConnected: false,
@@ -274,7 +275,9 @@ export default function App() {
   const [uploadedFile,setUploadedFile] = useState(null);
   const [uploadPreview,setUploadPreview] = useState(null);
   const [analyzing,setAnalyzing]   = useState(false);
-  const chatEndRef = useRef(null);
+  const chatEndRef  = useRef(null);
+  const saveTimerRef = useRef(null);   // debounce handle
+  const pendingDataRef = useRef(null); // always holds the latest data for the debounced flush
 
   // ── Auth state ──────────────────────────────────────────────────────────────
   const [user,setUser]           = useState(null);
@@ -286,19 +289,78 @@ export default function App() {
   const [authBusy,setAuthBusy]       = useState(false);
   const [syncBusy,setSyncBusy]       = useState(false);
   const [toast,setToast]             = useState(null);
+  const [guestMode,setGuestMode]     = useState(false);
+  const [showSplash,setShowSplash]   = useState(true);
+  const [showGate,setShowGate]       = useState(null); // gate message string
+  const [cameraOpen,setCameraOpen]   = useState(false);
   const showToast = (msg, type='success') => { setToast({msg,type}); setTimeout(()=>setToast(null),2800); };
+  const submitFeedback = async () => {
+    if (!feedbackRating || !feedbackText.trim()) return;
+    setFeedbackBusy(true);
+    try {
+      await supabase.from('feedback').insert({ rating: feedbackRating, category: feedbackCat, text: feedbackText, user_id: user?.id || null, created_at: new Date().toISOString() });
+    } catch(e) { console.log('Feedback error:', e); }
+    setFeedbackBusy(false);
+    setFeedbackStep('thanks');
+  };
+
+  // ── Splash screen timer ──────────────────────────────────────────────────
+  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2200); return () => clearTimeout(t); }, []);
+
+  // ── Guest demo data ──────────────────────────────────────────────────────
+  const GUEST_DATA = {
+    ...DEFAULTS,
+    monthlyIncome: 4200,
+    recurringPayments: [
+      {id:1, name:'Rent', amount:1200, frequency:'monthly', category:'housing', dueDay:1},
+      {id:2, name:'Car payment', amount:380, frequency:'monthly', category:'transport', dueDay:15},
+      {id:3, name:'Phone', amount:85, frequency:'monthly', category:'other', dueDay:10},
+      {id:4, name:'Netflix', amount:15.99, frequency:'monthly', category:'subscriptions', dueDay:5},
+      {id:5, name:'Spotify', amount:9.99, frequency:'monthly', category:'subscriptions', dueDay:5},
+    ],
+    dailyEntries: {
+      [todayKey()]: { transactions: [
+        {id:10, label:'Starbucks', amount:6.75, type:'expense'},
+        {id:11, label:'Lunch', amount:14.20, type:'expense'},
+      ]},
+    },
+  };
+
+  // ── Feature gate helper ──────────────────────────────────────────────────
+  const requireAuth = (msg) => {
+    if (user) return true;
+    setShowGate(msg || 'Sign in to unlock this feature');
+    return false;
+  };
 
   // ── Auth listener ───────────────────────────────────────────────────────────
  useEffect(()=>{
     const {data:{subscription}} = supabase.auth.onAuthStateChange((event,session)=>{
       setUser(session?.user ?? null);
       setAuthLoading(false);
-      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION')) {
+      // Only do a full load on actual sign-in or first session — NOT on token refresh
+      // TOKEN_REFRESHED fires every time the user tabs back in, causing the data wipe
+      if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         loadFromSupabase(session.user.id);
       }
     });
     return ()=>subscription.unsubscribe();
   },[]);
+
+  // ── Save on tab-away — flush any pending debounce immediately ───────────────
+  useEffect(()=>{
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden' && user) {
+        // Cancel the debounce timer and save immediately with latest data
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        const latest = pendingDataRef.current || data;
+        saveToSupabase(latest, user.id);
+        pendingDataRef.current = null;
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [user, data]);
 
   // ── Load user data from Supabase ────────────────────────────────────────────
   const loadFromSupabase = async (userId) => {
@@ -322,6 +384,8 @@ export default function App() {
       const newData = {
         ...DEFAULTS,
         monthlyIncome: settings?.monthly_income ?? 0,
+        monthlyIncomes: settings?.monthly_incomes ?? {},
+        householdMode: settings?.household_mode ?? false,
         recurringPayments: (recurring||[]).map(r=>({id:r.id,name:r.name,amount:r.amount,frequency:r.frequency,category:r.category,dueDay:r.due_day})),
         dailyEntries: entriesMap,
         members: (members||[]).map(m=>({id:m.id,name:m.name,color:m.color,monthlyIncome:m.monthly_income,recurringPayments:[]})),
@@ -342,22 +406,70 @@ export default function App() {
   const saveToSupabase = async (newData, userId) => {
     if (!userId) return;
     try {
-      // Upsert settings
+      // 1. Settings (income, plan, monthly income history)
       await supabase.from("user_settings").upsert({
         user_id: userId,
         monthly_income: newData.monthlyIncome,
+        monthly_incomes: newData.monthlyIncomes || {},
         plan: newData.plan ?? "free",
+        household_mode: newData.householdMode ?? false,
         updated_at: new Date().toISOString(),
       });
-      // Upsert today's daily entry
-      const today = todayKey();
-      const todayEntry = newData.dailyEntries[today];
-      if (todayEntry) {
-        await supabase.from("daily_entries").upsert({
-          user_id: userId,
-          date: today,
-          transactions: todayEntry.transactions || [],
-        });
+
+      // 2. ALL daily entries (not just today — past entries matter too)
+      const entries = Object.entries(newData.dailyEntries || {});
+      if (entries.length > 0) {
+        await supabase.from("daily_entries").upsert(
+          entries.map(([date, entry]) => ({
+            user_id: userId,
+            date,
+            transactions: entry.transactions || [],
+          }))
+        );
+      }
+
+      // 3. Recurring payments — full replace (delete removed ones, upsert current)
+      const existing = await supabase.from("recurring_payments").select("id").eq("user_id", userId);
+      const existingIds = new Set((existing.data||[]).map(r=>r.id));
+      const currentIds  = new Set((newData.recurringPayments||[]).map(r=>r.id));
+      // Delete bills that were removed
+      const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+      if (toDelete.length > 0) {
+        await supabase.from("recurring_payments").delete().in("id", toDelete);
+      }
+      // Upsert current bills
+      if ((newData.recurringPayments||[]).length > 0) {
+        await supabase.from("recurring_payments").upsert(
+          (newData.recurringPayments||[]).map(p => ({
+            id: p.id,
+            user_id: userId,
+            name: p.name,
+            amount: p.amount,
+            frequency: p.frequency,
+            category: p.category || "other",
+            due_day: p.dueDay || 1,
+          }))
+        );
+      }
+
+      // 4. Household members
+      const existingMembers = await supabase.from("household_members").select("id").eq("user_id", userId);
+      const existingMemberIds = new Set((existingMembers.data||[]).map(m=>m.id));
+      const currentMemberIds  = new Set((newData.members||[]).map(m=>m.id));
+      const membersToDelete   = [...existingMemberIds].filter(id => !currentMemberIds.has(id));
+      if (membersToDelete.length > 0) {
+        await supabase.from("household_members").delete().in("id", membersToDelete);
+      }
+      if ((newData.members||[]).length > 0) {
+        await supabase.from("household_members").upsert(
+          (newData.members||[]).map(m => ({
+            id: m.id,
+            user_id: userId,
+            name: m.name,
+            color: m.color,
+            monthly_income: parseFloat(m.monthlyIncome)||0,
+          }))
+        );
       }
     } catch(e) {
       console.log("Save error:", e);
@@ -406,28 +518,42 @@ export default function App() {
     setData(DEFAULTS);
   };
 
+  // ── Debounced Supabase sync — fires 800ms after last change, always uses latest data ──
+  const debouncedSave = (newData) => {
+    if (!user) return;
+    pendingDataRef.current = newData;          // always track latest
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      if (pendingDataRef.current) {
+        saveToSupabase(pendingDataRef.current, user.id);
+        pendingDataRef.current = null;
+      }
+    }, 800);
+  };
+
   const upd = (patch) => {
     const n = {...data,...patch};
     setData(n);
     persist(n);
-    if (user) saveToSupabase(n, user.id);
+    debouncedSave(n);
   };
 
   const TODAY      = todayKey();
-  const entry      = data.dailyEntries[TODAY]||{transactions:[]};
+  const activeData = (guestMode && !user) ? GUEST_DATA : data;
+  const entry      = activeData.dailyEntries[TODAY]||{transactions:[]};
 
   // Household-aware totals — combine owner + all members
-  const allMembers   = data.householdMode ? data.members : [];
+  const allMembers   = activeData.householdMode ? activeData.members : [];
   const memberIncome = allMembers.reduce((s,m)=>s+(parseFloat(m.monthlyIncome)||0), 0);
   const memberBills  = allMembers.reduce((s,m)=>s+totalBills(m.recurringPayments||[]), 0);
-  const householdIncome   = data.monthlyIncome + memberIncome;
-  const householdBills    = totalBills(data.recurringPayments) + memberBills;
+  const householdIncome   = activeData.monthlyIncome + memberIncome;
+  const householdBills    = totalBills(activeData.recurringPayments) + memberBills;
 
-  const myPool     = calcPool(householdIncome, []);  // pass 0 bills since we subtract manually
+  const myPool     = calcPool(householdIncome, []);
   const myPoolReal = householdIncome - householdBills;
   const myAllow    = calcDaily(myPoolReal);
-  const ptx        = data.plaidConnected ? data.plaidTransactions : [];
-  const monthSpent = calcMonthSpent(data.dailyEntries, ptx);
+  const ptx        = activeData.plaidConnected ? activeData.plaidTransactions : [];
+  const monthSpent = calcMonthSpent(activeData.dailyEntries, ptx);
   const daySpent   = calcDaySpent(entry, ptx);
   const todayLeft  = myAllow - daySpent;
   const poolLeft   = myPoolReal - monthSpent;
@@ -437,11 +563,12 @@ export default function App() {
   // Dynamic accent: green=on track, amber=80%+, red=over
   const accent     = over ? "#e03131" : pctDay > 0.8 ? "#f08c00" : "#2f9e44";
   const accentBg   = over ? "#fff5f5" : pctDay > 0.8 ? "#fff9db" : "#ebfbee";
-  const needsSetup = data.monthlyIncome === 0;
+  const needsSetup = activeData.monthlyIncome === 0;
 
   const allTodayTx = [...(entry.transactions||[]).map(t=>({...t,source:"manual"})), ...ptx.filter(t=>t.date===TODAY)];
 
   const addTx = () => {
+    if (!requireAuth("Create a free account to log transactions and track your spending")) return;
     if (!newTx.label.trim()||!newTx.amount) return;
     const tx = {id:Date.now(),label:newTx.label.trim(),amount:parseFloat(newTx.amount),type:newTx.type};
     upd({dailyEntries:{...data.dailyEntries,[TODAY]:{...entry,transactions:[...(entry.transactions||[]),tx]}}});
@@ -462,6 +589,7 @@ export default function App() {
     upd({dailyEntries:{...data.dailyEntries,[dateKey]:{...existing,transactions:(existing.transactions||[]).filter(t=>t.id!==id)}}});
   };
   const addRec = () => {
+    if (!requireAuth("Create a free account to track your bills and recurring payments")) return;
     if (!newRec.name.trim()||!newRec.amount) return;
     upd({recurringPayments:[...data.recurringPayments,{id:Date.now(),name:newRec.name.trim(),amount:parseFloat(newRec.amount),frequency:newRec.frequency,category:newRec.category,dueDay:parseInt(newRec.dueDay)||1}]});
     setNewRec({name:"",amount:"",frequency:"monthly",category:newRec.category,dueDay:1});
@@ -475,52 +603,258 @@ export default function App() {
   const historyDays = [...allDayKeys].sort((a,b)=>b.localeCompare(a)).slice(0,30);
 
   // ── AI Advisor helpers ────────────────────────────────────────────────────
-  const buildFinancialContext = () => `
-You are a friendly, knowledgeable financial advisor embedded in DayFlow — a daily spending tracker.
-The user's financial snapshot:
-- Monthly income (take-home): ${fmtFull(data.monthlyIncome)}${data.householdMode&&(data.members||[]).length>0?`\n- Household members: ${(data.members||[]).map(m=>`${m.name} (${fmtFull(parseFloat(m.monthlyIncome)||0)}/mo)`).join(", ")}\n- Combined household income: ${fmtFull(householdIncome)}`:""}
-- Monthly recurring expenses: ${fmtFull(householdBills)}
-- Spendable pool this month: ${fmtFull(myPoolReal)}
-- Daily allowance: ${fmtFull(myAllow)} (pool ÷ ${DIM} days)
-- Spent so far this month: ${fmtFull(monthSpent)}
-- Pool remaining: ${fmtFull(poolLeft)}
-- Day ${dayOfMonth()} of ${DIM}
-- Recurring expenses: ${data.recurringPayments.length > 0 ? data.recurringPayments.map(p=>`${p.name} (${fmtFull(p.amount)}/${p.frequency}, due day ${p.dueDay||1})`).join(", ") : "none logged"}${data.householdMode&&(data.members||[]).length>0?`\n- Household bills: ${(data.members||[]).flatMap(m=>(m.recurringPayments||[]).map(r=>`${m.name}: ${r.name} (${fmtFull(r.amount)}/${r.frequency})`)).join(", ")}`:""}
+  const buildFinancialContext = () => {
+    // Build a rich snapshot of everything the AI needs to know
+    const now = new Date();
+    const currentMonth = now.toISOString().slice(0,7);
+    const prevMonth = new Date(now.getFullYear(), now.getMonth()-1, 1).toISOString().slice(0,7);
 
-Your role: help the user understand their finances, identify patterns, give actionable advice, and make them feel financially literate — not judged. Be warm, specific, and concrete. Use their actual numbers. Keep responses concise but genuinely useful. Never be preachy.
+    // Last 14 days of activity
+    const recentActivity = Object.entries(data.dailyEntries)
+      .sort(([a],[b]) => b.localeCompare(a))
+      .slice(0,14)
+      .map(([date, entry]) => {
+        const txs = entry.transactions||[];
+        const spent = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+        const income = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+        const txList = txs.map(t=>`${t.label}($${t.amount})`).join(', ');
+        return `  ${date}: spent $${spent.toFixed(2)}${income>0?`, income $${income.toFixed(2)}`:''}${txList?` [${txList}]`:''}`;
+      }).join('\n') || '  No recent activity logged';
 
-When the topic of investing, brokerage accounts, or stock trading comes up naturally, you can mention that a great way to get started is with Robinhood — new users can get between $5 and $200 in free stock just for signing up. Include this as a markdown link exactly like this: [Get free stock on Robinhood](https://join.robinhood.com/brado84) — only mention it once per conversation and only when it's genuinely relevant (investing, starting to invest, brokerage accounts, free ways to build wealth). Never force it into unrelated topics.
+    // Bills with IDs for removal/editing
+    const billsList = data.recurringPayments.length > 0
+      ? data.recurringPayments.map(p=>`  id:${p.id} "${p.name}" $${p.amount}/${p.frequency}, due day ${p.dueDay||1}, category:${p.category||'other'}`).join('\n')
+      : '  None';
 
-LIVE ACTIONS: You can update the user's DayFlow data in real time. When the user mentions spending money, earning money, adding a bill, or updating income — include a JSON action tag at the END of your response (after your message). Use ONLY when clearly appropriate. Format exactly:
-<dayflow_action>{"type":"log_expense","label":"Coffee","amount":4.50}</dayflow_action>
-<dayflow_action>{"type":"log_income","label":"Freelance payment","amount":500}</dayflow_action>
+    // Historical monthly incomes
+    const incomeHistory = Object.entries(data.monthlyIncomes||{})
+      .sort(([a],[b]) => b.localeCompare(a))
+      .slice(0,6)
+      .map(([m,v])=>`  ${m}: $${v}`)
+      .join('\n') || '  No history (only current income set)';
+
+    // Household members
+    const membersList = (data.members||[]).length > 0
+      ? (data.members||[]).map(m=>`  id:${m.id} "${m.name}" $${parseFloat(m.monthlyIncome)||0}/mo`).join('\n')
+      : '  None';
+
+    return `You are the DayFlow AI Advisor — a genuinely helpful, friendly personal finance assistant embedded directly in the user's budgeting app. You have REAL-TIME control over the app. You can read all their data and instantly update anything they ask.
+
+═══ USER'S CURRENT DATA ═══
+
+Monthly take-home income: $${data.monthlyIncome}/mo (current setting)
+${data.householdMode ? `Household mode: ON — combined income $${householdIncome.toFixed(2)}/mo` : 'Household mode: OFF'}
+Monthly bills total: $${householdBills.toFixed(2)}/mo
+Spendable pool: $${myPoolReal.toFixed(2)}/mo
+Daily allowance: $${myAllow.toFixed(2)}/day (÷ ${DIM} days)
+Month progress: Day ${dayOfMonth()} of ${DIM}
+Spent this month: $${monthSpent.toFixed(2)} | Pool remaining: $${poolLeft.toFixed(2)}
+
+BILLS ON FILE:
+${billsList}
+
+HOUSEHOLD MEMBERS:
+${membersList}
+
+INCOME HISTORY (past months):
+${incomeHistory}
+
+RECENT ACTIVITY (last 14 days):
+${recentActivity}
+
+═══ YOUR PERSONALITY ═══
+
+- Warm, direct, never preachy or condescending
+- You speak like a knowledgeable friend, not a corporate chatbot
+- Use their actual numbers. Be specific, not generic.
+- If something seems off (income too low, bills too high), gently flag it
+- Celebrate wins — "you saved $X this week" type energy
+- When they say "fix it", "change it", "update it", "I made a mistake" — just DO it, don't ask for confirmation unless the request is genuinely ambiguous
+- You can handle ANYTHING finance-related: budgeting, investing, debt, taxes, 401k, Roth IRA, HSA, credit scores, etc.
+
+When investing/stocks/brokerage comes up naturally: mention [Get free stock on Robinhood](https://join.robinhood.com/brado84) once per conversation. Never force it.
+
+═══ LIVE ACTIONS — YOU CONTROL THE APP ═══
+
+You can execute multiple actions in one response. Include them ALL at the end, each on its own line. The app will execute every single one.
+
+**INCOME:**
 <dayflow_action>{"type":"set_income","amount":5000}</dayflow_action>
-<dayflow_action>{"type":"add_bill","name":"Netflix","amount":15.99,"frequency":"monthly"}</dayflow_action>
-Only include ONE action per response. Only act when the user clearly states something happened (not hypotheticals). Always confirm what you did in your message text.`;
+→ Sets current monthly income
 
-  // ── Execute live actions from AI ─────────────────────────────────────────
-  const executeDayflowAction = (actionStr) => {
-    try {
-      const action = JSON.parse(actionStr);
-      if (action.type === 'log_expense') {
-        const tx = {id:Date.now(), label:action.label||'Expense', amount:parseFloat(action.amount)||0, type:'expense'};
-        const todayEntry = data.dailyEntries[TODAY]||{transactions:[]};
-        upd({dailyEntries:{...data.dailyEntries,[TODAY]:{...todayEntry,transactions:[...(todayEntry.transactions||[]),tx]}}});
-        showToast('−'+fmtFull(tx.amount)+' logged ✓');
-      } else if (action.type === 'log_income') {
-        const tx = {id:Date.now(), label:action.label||'Income', amount:parseFloat(action.amount)||0, type:'income'};
-        const todayEntry = data.dailyEntries[TODAY]||{transactions:[]};
-        upd({dailyEntries:{...data.dailyEntries,[TODAY]:{...todayEntry,transactions:[...(todayEntry.transactions||[]),tx]}}});
-        showToast('+'+fmtFull(tx.amount)+' logged ✓');
-      } else if (action.type === 'set_income') {
-        const amt = parseFloat(action.amount)||0;
-        if (amt > 0) { upd({monthlyIncome:amt}); showToast('Income updated to '+fmt(amt)+' ✓'); }
-      } else if (action.type === 'add_bill') {
-        const bill = {id:Date.now(), name:action.name||'Bill', amount:parseFloat(action.amount)||0, frequency:action.frequency||'monthly', category:'other', dueDay:1};
-        upd({recurringPayments:[...data.recurringPayments, bill]});
-        showToast(bill.name+' added to bills ✓');
+<dayflow_action>{"type":"set_income_for_month","amount":2500,"month":"2025-02"}</dayflow_action>
+→ Records what income was in a past month (month = YYYY-MM format)
+
+**TRANSACTIONS — LOG:**
+<dayflow_action>{"type":"log_expense","label":"Coffee","amount":4.50}</dayflow_action>
+→ Logs expense for TODAY
+
+<dayflow_action>{"type":"log_expense","label":"Groceries","amount":87.00,"date":"2025-03-15"}</dayflow_action>
+→ Logs expense for a SPECIFIC DATE (date = YYYY-MM-DD)
+
+<dayflow_action>{"type":"log_income","label":"Freelance","amount":500}</dayflow_action>
+→ Logs income received TODAY
+
+<dayflow_action>{"type":"log_income","label":"Side gig","amount":300,"date":"2025-03-10"}</dayflow_action>
+→ Logs income for a SPECIFIC DATE
+
+**TRANSACTIONS — REMOVE/FIX:**
+<dayflow_action>{"type":"remove_transaction","label":"Coffee","date":"${TODAY}"}</dayflow_action>
+→ Removes a transaction by label match (date optional, defaults to today). Use when user says "I logged that wrong" or "remove the X entry"
+
+<dayflow_action>{"type":"clear_day","date":"${TODAY}"}</dayflow_action>
+→ Clears ALL transactions for a day. Use when user says "wipe today" or "start over for [date]"
+
+**BILLS:**
+<dayflow_action>{"type":"add_bill","name":"Netflix","amount":15.99,"frequency":"monthly","category":"subscriptions","dueDay":5}</dayflow_action>
+→ Adds a new recurring bill. frequency: "monthly"|"weekly"|"yearly"|"daily". category: "housing"|"transport"|"subscriptions"|"insurance"|"health"|"food"|"utilities"|"other"
+
+<dayflow_action>{"type":"remove_bill","name":"Netflix"}</dayflow_action>
+→ Removes a bill by name (fuzzy match). Use when user cancels a subscription or says "remove X"
+
+<dayflow_action>{"type":"edit_bill","name":"Netflix","amount":22.99}</dayflow_action>
+→ Updates a bill's amount, frequency, or dueDay. Only include fields that change.
+
+**HOUSEHOLD:**
+<dayflow_action>{"type":"set_member_income","name":"Alex","amount":3200}</dayflow_action>
+→ Updates a household member's income
+
+<dayflow_action>{"type":"toggle_household_mode","enabled":true}</dayflow_action>
+→ Turns household mode on or off
+
+**APP NAVIGATION:**
+<dayflow_action>{"type":"navigate","tab":"recurring"}</dayflow_action>
+→ Switches the app to a tab. tabs: "today"|"history"|"recurring"|"household"|"advisor"
+
+═══ ACTION RULES ═══
+
+1. **Execute first, explain after** — when the intent is clear, just do it and confirm in your message text
+2. **Multiple actions are fine** — if they say "add Netflix and Spotify", use TWO add_bill actions
+3. **Be smart about dates** — "last Tuesday", "March 15th", "yesterday" → convert to YYYY-MM-DD. Today is ${TODAY}.
+4. **Fuzzy matching** — if they say "remove hulu" and the bill is "Hulu + Live TV", still remove it
+5. **Corrections welcome** — "I typed wrong", "fix my income", "that was wrong" → just fix it
+6. **Historical income** — "My February income was $2,800" → use set_income_for_month with the right month
+7. **Don't ask when clear** — "My income is $4,500" → set_income immediately. Only ask if genuinely ambiguous (e.g., "I make good money" — no number)
+8. **Navigate helpfully** — if you add bills, also navigate to "recurring" so they see the result
+9. Current month is ${currentMonth}, previous month is ${prevMonth}`;
+  };
+
+  // ── Execute live actions from AI — full action library ──────────────────
+  const executeDayflowActions = (actionsArr) => {
+    // Use functional setData so we always read the CURRENT state,
+    // not the stale closure captured when sendAiMessage started streaming.
+    setData(prev => {
+      let d = {...prev};
+
+      for (const action of actionsArr) {
+        try {
+          if (action.type === 'set_income') {
+            const amt = parseFloat(action.amount)||0;
+            if (amt > 0) { d = {...d, monthlyIncome: amt}; showToast(`Income updated to ${fmt(amt)}/mo ✓`); }
+
+          } else if (action.type === 'set_income_for_month') {
+            const amt = parseFloat(action.amount)||0;
+            const month = action.month || thisMonth();
+            if (amt > 0) {
+              d = {...d, monthlyIncomes: {...(d.monthlyIncomes||{}), [month]: amt}};
+              if (month === thisMonth()) d = {...d, monthlyIncome: amt};
+              showToast(`${month} income set to ${fmt(amt)} ✓`);
+            }
+
+          } else if (action.type === 'log_expense') {
+            const dateKey = action.date || todayKey();
+            const tx = {id: Date.now()+Math.random(), label: action.label||'Expense', amount: parseFloat(action.amount)||0, type: 'expense'};
+            const existing = d.dailyEntries[dateKey]||{transactions:[]};
+            d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: [...(existing.transactions||[]), tx]}}};
+            showToast(`−${fmtFull(tx.amount)} logged${action.date&&action.date!==todayKey()?' for '+action.date:''} ✓`);
+
+          } else if (action.type === 'log_income') {
+            const dateKey = action.date || todayKey();
+            const tx = {id: Date.now()+Math.random(), label: action.label||'Income', amount: parseFloat(action.amount)||0, type: 'income'};
+            const existing = d.dailyEntries[dateKey]||{transactions:[]};
+            d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: [...(existing.transactions||[]), tx]}}};
+            showToast(`+${fmtFull(tx.amount)} logged${action.date&&action.date!==todayKey()?' for '+action.date:''} ✓`);
+
+          } else if (action.type === 'remove_transaction') {
+            const dateKey = action.date || todayKey();
+            const label = (action.label||'').toLowerCase();
+            const existing = d.dailyEntries[dateKey]||{transactions:[]};
+            let removed = false;
+            const newTxs = [...(existing.transactions||[])].reverse().filter(t => {
+              if (!removed && t.label.toLowerCase().includes(label)) { removed = true; return false; }
+              return true;
+            }).reverse();
+            if (removed) {
+              d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: newTxs}}};
+              showToast(`Removed "${action.label}" ✓`);
+            }
+
+          } else if (action.type === 'clear_day') {
+            const dateKey = action.date || todayKey();
+            const existing = d.dailyEntries[dateKey]||{transactions:[]};
+            d = {...d, dailyEntries: {...d.dailyEntries, [dateKey]: {...existing, transactions: []}}};
+            showToast(`Cleared all transactions for ${dateKey} ✓`);
+
+          } else if (action.type === 'add_bill') {
+            const bill = {
+              id: Date.now()+Math.random(),
+              name: action.name||'Bill',
+              amount: parseFloat(action.amount)||0,
+              frequency: action.frequency||'monthly',
+              category: action.category||'other',
+              dueDay: parseInt(action.dueDay)||1,
+            };
+            d = {...d, recurringPayments: [...(d.recurringPayments||[]), bill]};
+            showToast(`${bill.name} added to bills ✓`);
+
+          } else if (action.type === 'remove_bill') {
+            const nameQ = (action.name||'').toLowerCase();
+            const filtered = (d.recurringPayments||[]).filter(p => !p.name.toLowerCase().includes(nameQ));
+            if (filtered.length < (d.recurringPayments||[]).length) {
+              d = {...d, recurringPayments: filtered};
+              showToast(`${action.name} removed ✓`);
+            }
+
+          } else if (action.type === 'edit_bill') {
+            const nameQ = (action.name||'').toLowerCase();
+            const updated = (d.recurringPayments||[]).map(p => {
+              if (!p.name.toLowerCase().includes(nameQ)) return p;
+              return {
+                ...p,
+                ...(action.amount    !== undefined ? {amount:    parseFloat(action.amount)}  : {}),
+                ...(action.frequency !== undefined ? {frequency: action.frequency}           : {}),
+                ...(action.dueDay    !== undefined ? {dueDay:    parseInt(action.dueDay)}    : {}),
+                ...(action.category  !== undefined ? {category:  action.category}            : {}),
+                ...(action.newName   !== undefined ? {name:      action.newName}             : {}),
+              };
+            });
+            d = {...d, recurringPayments: updated};
+            showToast(`${action.name} updated ✓`);
+
+          } else if (action.type === 'set_member_income') {
+            const nameQ = (action.name||'').toLowerCase();
+            const updated = (d.members||[]).map(m =>
+              m.name.toLowerCase().includes(nameQ) ? {...m, monthlyIncome: parseFloat(action.amount)||0} : m
+            );
+            d = {...d, members: updated};
+            showToast(`${action.name}'s income updated ✓`);
+
+          } else if (action.type === 'toggle_household_mode') {
+            d = {...d, householdMode: !!action.enabled};
+            showToast(`Household mode ${action.enabled?'enabled':'disabled'} ✓`);
+
+          } else if (action.type === 'navigate') {
+            if (action.tab) setTab(action.tab);
+          }
+
+        } catch(e) { console.log('Action error:', action.type, e); }
       }
-    } catch(e) { console.log('Action parse error:', e); }
+
+      // Persist and sync after all actions applied
+      persist(d);
+      debouncedSave(d);
+      return d;
+    });
   };
 
   const sendAiMessage = async (messageText, imageData = null) => {
@@ -582,10 +916,11 @@ Only include ONE action per response. Only act when the user clearly states some
           } catch(e) {}
         }
       }
-      // Parse and execute any live actions
-      const actionMatch = fullText.match(/<dayflow_action>([\s\S]*?)<\/dayflow_action>/);
-      if (actionMatch) {
-        executeDayflowAction(actionMatch[1]);
+      // Parse and execute ALL live actions
+      const actionMatches = [...fullText.matchAll(/<dayflow_action>([\s\S]*?)<\/dayflow_action>/g)];
+      if (actionMatches.length > 0) {
+        const actions = actionMatches.map(m => { try { return JSON.parse(m[1]); } catch(e) { return null; } }).filter(Boolean);
+        if (actions.length > 0) executeDayflowActions(actions);
         fullText = fullText.replace(/<dayflow_action>[\s\S]*?<\/dayflow_action>/g, '').trim();
       }
       // Finalize message
@@ -836,7 +1171,33 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
     : `You're on track — ${fmtFull(todayLeft)} free today`;
 
   // ── Auth loading ────────────────────────────────────────────────────────────
-  if (authLoading) return (
+  // ── Splash screen ────────────────────────────────────────────────────────────
+  if (showSplash) return (
+    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",animation:"fadeIn 0.3s ease"}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes waveIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1)}}`}</style>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:24,animation:"waveIn 0.6s ease 0.2s both"}}>
+        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+          <rect width="80" height="80" rx="22" fill="#fff" fillOpacity="0.08"/>
+          <path d="M10 40 Q20 20 30 40 Q40 60 50 40 Q60 20 70 40" stroke="rgba(255,255,255,0.2)" strokeWidth="3" strokeLinecap="round" fill="none"/>
+          <path d="M10 40 Q20 20 30 40 Q40 60 50 40" stroke="#fff" strokeWidth="4" strokeLinecap="round" fill="none"/>
+          <circle cx="50" cy="40" r="6" fill="#2f9e44"/>
+        </svg>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:42,fontWeight:800,color:"#fff",letterSpacing:"-0.04em",lineHeight:1}}>
+            day<span style={{fontWeight:300,opacity:0.6}}>flow</span>
+          </div>
+          <div style={{fontSize:14,color:"rgba(255,255,255,0.4)",marginTop:8,fontWeight:500}}>Your daily money, simplified</div>
+        </div>
+        <div style={{display:"flex",gap:6,marginTop:8}}>
+          {[0,1,2].map(i=>(
+            <div key={i} style={{width:6,height:6,borderRadius:"50%",background:"rgba(255,255,255,0.3)",animation:`pulse 1.2s ease-in-out infinite`,animationDelay:`${i*0.2}s`}}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (authLoading && !guestMode) return (
     <div style={{minHeight:"100vh",background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
         <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -851,7 +1212,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
   );
 
   // ── Auth screen ─────────────────────────────────────────────────────────────
-  if (!user) return (
+  if (!user && !guestMode) return (
     <div style={{minHeight:"100vh",background:"#f0efe9",fontFamily:"'Plus Jakarta Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
@@ -920,7 +1281,10 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
             </div>
           )}
         </div>
-        <div style={{textAlign:"center",marginTop:20,fontSize:12,color:"#bbb9b0",lineHeight:1.6}}>
+        <button onClick={()=>setGuestMode(true)} style={{marginTop:16,width:"100%",background:"transparent",border:"1.5px solid #e0ddd4",borderRadius:16,padding:"13px",fontSize:14,fontWeight:600,color:"#9e9b95",cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+          Explore without an account →
+        </button>
+        <div style={{textAlign:"center",marginTop:14,fontSize:12,color:"#bbb9b0",lineHeight:1.6}}>
           By continuing you agree to our Terms of Service and Privacy Policy
         </div>
       </div>
@@ -1022,6 +1386,75 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
 
       <div className="app-bg">
 
+        {/* ── Guest banner ─────────────────────────────────────────────── */}
+        {guestMode&&!user&&(
+          <div style={{background:"#1a1a2e",color:"#fff",padding:"10px 20px",textAlign:"center",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:12,flexWrap:"wrap"}}>
+            <span>👀 You're exploring in guest mode — data won't be saved</span>
+            <button onClick={()=>setGuestMode(false)} style={{background:"#2f9e44",color:"#fff",border:"none",borderRadius:20,padding:"5px 14px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Sign up free →</button>
+          </div>
+        )}
+
+        {/* ── Feature Gate Modal ───────────────────────────────────────── */}
+        {showGate&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}} onClick={()=>setShowGate(null)}>
+            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 44px",animation:"slideUp 0.3s ease"}} onClick={e=>e.stopPropagation()}>
+              <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 24px"}}/>
+              <div style={{fontSize:32,textAlign:"center",marginBottom:12}}>🔒</div>
+              <div style={{fontSize:20,fontWeight:800,textAlign:"center",marginBottom:8}}>Create a free account</div>
+              <div style={{fontSize:14,color:"#9e9b95",textAlign:"center",lineHeight:1.6,marginBottom:24}}>{showGate}</div>
+              <div style={{background:"#f8f7f2",borderRadius:16,padding:16,marginBottom:20,border:"1px solid #ece9e0"}}>
+                {[["💾","Your data saves across devices"],["📊","Full spending history & insights"],["🤖","Personalized AI Advisor"],["🔄","Sync income, bills & budget"]].map(([icon,text])=>(
+                  <div key={text} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0"}}>
+                    <span style={{fontSize:16}}>{icon}</span>
+                    <span style={{fontSize:13,fontWeight:500,color:"#1a1a2e"}}>{text}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>{setShowGate(null);setGuestMode(false);}} style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"15px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:10}}>
+                Create free account →
+              </button>
+              <button onClick={()=>setShowGate(null)} style={{width:"100%",background:"transparent",border:"none",color:"#9e9b95",fontSize:14,cursor:"pointer",fontFamily:"inherit",padding:"8px"}}>
+                Continue exploring
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Camera Capture Modal ─────────────────────────────────────── */}
+        {cameraOpen&&(
+          <div style={{position:"fixed",inset:0,background:"#000",zIndex:9999,display:"flex",flexDirection:"column"}} onClick={()=>setCameraOpen(false)}>
+            <div style={{padding:"20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:16,fontWeight:700,color:"#fff"}}>Take a photo</div>
+              <button onClick={()=>setCameraOpen(false)} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:20,padding:"8px 16px",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+            </div>
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+              <label style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,cursor:"pointer"}} onClick={e=>e.stopPropagation()}>
+                <div style={{width:80,height:80,borderRadius:"50%",background:"rgba(255,255,255,0.1)",border:"3px solid rgba(255,255,255,0.3)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                </div>
+                <div style={{color:"rgba(255,255,255,0.7)",fontSize:14}}>Tap to open camera</div>
+                <input type="file" accept="image/*" capture="environment" onChange={(e)=>{
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setCameraOpen(false);
+                  setUploadedFile(file.name);
+                  const reader = new FileReader();
+                  reader.onload = async (ev) => {
+                    const base64 = ev.target.result.split(',')[1];
+                    setUploadPreview(ev.target.result);
+                    setTab("advisor");
+                    await analyzeDocument([{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}}], file.name);
+                  };
+                  reader.readAsDataURL(file);
+                }} style={{display:"none"}}/>
+              </label>
+            </div>
+          </div>
+        )}
+
         {/* ── Onboarding Modal ─────────────────────────────────────────────── */}
         {showOnboarding&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}}>
@@ -1071,7 +1504,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     if(inc<=0){alert("Please enter your monthly income");return;}
                     const nd={...data,monthlyIncome:inc};
                     setData(nd);persist(nd);
-                    if(user)saveToSupabase(nd,user.id);
+                    debouncedSave(nd);
                     setOnboardStep(2);
                   }} style={{flex:2,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Continue →</button>
                 </div>
@@ -1249,7 +1682,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       if (inc<=0){alert("Please enter your monthly income");return;}
                       const nd={...data,monthlyIncome:inc};
                       setData(nd); persist(nd);
-                      if(user) saveToSupabase(nd,user.id);
+                      debouncedSave(nd);
                       setOnboardStep(2);
                     }} style={{flex:2,background:"#1a1a2e",color:"#fff",border:"none",borderRadius:16,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Continue →</button>
                   </div>
@@ -2444,206 +2877,155 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           {tab==="advisor"&&(
             <C style={{gap:14}}>
 
-              {/* Hero intro — shown only when no messages yet */}
-              {aiMessages.length===0&&(
-                <>
-                  <div className="hero-card" style={{padding:28,textAlign:"center"}}>
-                    <div className="hero-band" style={{background:"#7048e8"}}/>
-                    <div style={{marginTop:8}}>
-                      <div style={{width:60,height:60,borderRadius:20,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
-                        <I n="brain" s={28} c="#7048e8"/>
-                      </div>
-                      <div style={{fontSize:22,fontWeight:800,letterSpacing:"-0.03em",marginBottom:8}}>Your financial advisor</div>
-                      <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.7,maxWidth:320,margin:"0 auto"}}>
-                        Ask anything about your money. Upload a paystub and I'll break down every line. I know your numbers — let's make sense of them.
-                      </div>
-                    </div>
-                  </div>
+              {/* ── Single unified chat card — always visible ── */}
+              <div className="card" style={{padding:0,overflow:"hidden"}}>
 
-                  {/* Snapshot card */}
-                  {data.monthlyIncome>0&&(
-                    <div className="card" style={{padding:20}}>
-                      <div className="sec-hd">Your snapshot</div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                        {[
-                          {label:"Take-home",val:fmtFull(data.monthlyIncome),color:"#2f9e44"},
-                          {label:"Bills",val:fmtFull(totalBills(data.recurringPayments)),color:"#e03131"},
-                          {label:"Daily allowance",val:fmtFull(myAllow),color:"#1a1a2e"},
-                          {label:"Pool left",val:fmtFull(poolLeft),color:poolLeft>=0?"#2f9e44":"#e03131"},
-                        ].map(({label,val,color})=>(
-                          <div key={label} style={{background:"#f8f7f2",borderRadius:14,padding:"12px 14px"}}>
-                            <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>{label}</div>
-                            <div style={{fontSize:18,fontWeight:700,color,letterSpacing:"-0.02em"}}>{val}</div>
-                          </div>
-                        ))}
-                      </div>
+                {/* Header */}
+                <R style={{padding:"16px 20px",borderBottom:"1px solid #f0efe9",justifyContent:"space-between"}}>
+                  <R style={{gap:10}}>
+                    <div style={{width:36,height:36,borderRadius:12,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <I n="brain" s={18} c="#7048e8"/>
                     </div>
-                  )}
-
-                  {/* Upload paystub card */}
-                  <div className="card" style={{padding:22}}>
-                    <R style={{gap:12,marginBottom:14}}>
-                      <div style={{width:40,height:40,borderRadius:13,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        <I n="upload" s={18} c="#7048e8"/>
-                      </div>
-                      <C>
-                        <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Upload a paystub</div>
-                        <div style={{fontSize:12,color:"#9e9b95",lineHeight:1.5}}>PNG, JPG, or PDF — I'll extract every number and explain what it means</div>
-                      </C>
-                    </R>
-                    <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#f3eeff",border:"1.5px dashed #c8b8f8",borderRadius:14,padding:"18px",cursor:"pointer",transition:"all 0.15s"}}>
-                      <I n="file" s={18} c="#7048e8"/>
-                      <span style={{fontSize:14,fontWeight:600,color:"#7048e8"}}>Choose file to analyze</span>
-                      <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
-                    </label>
-                  </div>
-
-                  {/* Suggested prompts */}
-                  <div className="card" style={{padding:20}}>
-                    <div className="sec-hd">Ask me anything</div>
-                    {/* Category tabs */}
-                    <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:14,paddingBottom:2}}>
-                      {suggestions.map(s=>(
-                        <button key={s.cat} onClick={()=>setSuggestionCat(s.cat)}
-                          style={{flexShrink:0,padding:"6px 12px",borderRadius:20,border:"1.5px solid",borderColor:suggestionCat===s.cat?"#1a1a2e":"#ece9e0",background:suggestionCat===s.cat?"#1a1a2e":"#f8f7f2",color:suggestionCat===s.cat?"#fff":"#9e9b95",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                          {s.cat}
-                        </button>
-                      ))}
-                    </div>
-                    <C style={{gap:8}}>
-                      {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).map((s,i)=>(
-                        <button key={i} onClick={()=>sendAiMessage(s)}
-                          style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"12px 16px",textAlign:"left",cursor:"pointer",fontSize:13,color:"#1a1a2e",fontFamily:"inherit",fontWeight:500,transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                          {s}
-                          <I n="arrow" s={14} c="#bbb9b0"/>
-                        </button>
-                      ))}
+                    <C style={{gap:1}}>
+                      <div style={{fontSize:14,fontWeight:700}}>DayFlow Advisor</div>
+                      <div style={{fontSize:11,color:"#2f9e44",fontWeight:600}}>● Online — ask me anything</div>
                     </C>
-                  </div>
-                </>
-              )}
-
-              {/* Chat messages */}
-              {aiMessages.length>0&&(
-                <div className="card" style={{padding:0,overflow:"hidden"}}>
-                  {/* Chat header */}
-                  <R style={{padding:"16px 20px",borderBottom:"1px solid #f0efe9",justifyContent:"space-between"}}>
-                    <R style={{gap:10}}>
-                      <div style={{width:34,height:34,borderRadius:11,background:"#f3eeff",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                        <I n="brain" s={16} c="#7048e8"/>
-                      </div>
-                      <C style={{gap:1}}>
-                        <div style={{fontSize:13,fontWeight:700}}>DayFlow Advisor</div>
-                        <div style={{fontSize:11,color:"#2f9e44",fontWeight:600}}>● Online</div>
-                      </C>
-                    </R>
+                  </R>
+                  {aiMessages.length>0&&(
                     <button className="btn-ghost" style={{padding:"6px 12px",fontSize:11}}
                       onClick={()=>{setAiMessages([]);setUploadedFile(null);setUploadPreview(null);}}>
                       New chat
                     </button>
-                  </R>
+                  )}
+                </R>
 
-                  {/* Messages */}
-                  <div style={{padding:"16px 16px 8px",maxHeight:420,overflowY:"auto",display:"flex",flexDirection:"column",gap:12}}>
-                    {aiMessages.map((msg,i)=>{
-                      const isUser = msg.role==="user";
-                      return (
-                        <div key={msg.id||i} style={{display:"flex",flexDirection:"column",alignItems:isUser?"flex-end":"flex-start",gap:4}}>
-                          {/* Sender label */}
-                          <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:isUser?0:4,paddingRight:isUser?4:0}}>
-                            {isUser?"You":"Advisor"}
-                          </div>
-                          {/* Image preview if paystub */}
-                          {msg.image&&(
-                            <div style={{borderRadius:12,overflow:"hidden",maxWidth:220,border:"1px solid #f0efe9"}}>
-                              <img src={`data:image/jpeg;base64,${msg.image}`} style={{width:"100%",display:"block"}} alt="Uploaded document"/>
-                            </div>
-                          )}
-                          {/* Message bubble */}
-                          {(msg.content||msg.isPaystub)&&(
-                            <div style={{
-                              maxWidth:"85%",padding:"12px 16px",borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
-                              background:isUser?"#1a1a2e":"#f8f7f2",
-                              color:isUser?"#fff":"#1a1a2e",
-                              fontSize:13,lineHeight:1.65,fontWeight:400,
-                              border:isUser?"none":"1px solid #ece9e0",
-                            }}>
-                              {msg.isPaystub&&!msg.image
-                                ? "Analyzing your document…"
-                                : <>{renderMd(msg.content)}{msg.streaming&&<span style={{display:"inline-block",width:2,height:14,background:"#7048e8",marginLeft:2,borderRadius:1,animation:"pulse 0.8s ease-in-out infinite",verticalAlign:"middle"}}/>}</>
-                              }
-                              {/* Auto-apply income button */}
-                              {msg.applyIncome&&(
-                                <div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
-                                  <button onClick={()=>{
-                                    const nd={...data,monthlyIncome:msg.applyIncome};
-                                    setData(nd);persist(nd);
-                                    if(user)saveToSupabase(nd,user.id);
-                                    setAiMessages(prev=>[...prev,{role:'assistant',content:'✅ Done! Your monthly income is now set to **$'+msg.applyIncome.toLocaleString()+'/mo**. Your daily budget has been updated automatically.',id:Date.now()}]);
-                                  }} style={{background:"#1a1a2e",color:"#fff",border:"none",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                                    ✓ Yes, update to ${msg.applyIncome.toLocaleString()}/mo
-                                  </button>
-                                  <button onClick={()=>setAiMessages(prev=>prev.filter(m=>m.id!==msg.id))}
-                                    style={{background:"#f8f7f2",color:"#9e9b95",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                                    Keep current
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                {/* Messages area */}
+                <div style={{minHeight:260,maxHeight:440,overflowY:"auto",display:"flex",flexDirection:"column",gap:12,padding:"16px 16px 8px"}}>
 
-                    {/* Typing indicator */}
-                    {aiLoading&&(
-                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
-                        <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:4}}>Advisor</div>
-                        <div style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5,alignItems:"center"}}>
-                          {[0,1,2].map(j=>(
-                            <div key={j} style={{width:7,height:7,borderRadius:"50%",background:"#bbb9b0",animation:"pulse 1.2s ease-in-out infinite",animationDelay:`${j*0.2}s`}}/>
+                  {aiMessages.length===0&&(
+                    <div style={{display:"flex",flexDirection:"column"}}>
+                      {data.monthlyIncome>0&&(
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+                          {[
+                            {label:"Allowance",val:fmtFull(myAllow)+"/day",color:"#1a1a2e"},
+                            {label:"Spent today",val:fmtFull(daySpent),color:daySpent>0?"#e03131":"#bbb9b0"},
+                            {label:"Pool left",val:fmtFull(poolLeft),color:poolLeft>=0?"#2f9e44":"#e03131"},
+                          ].map(({label,val,color})=>(
+                            <div key={label} style={{background:"#f8f7f2",borderRadius:12,padding:"10px 12px",border:"1px solid #ece9e0"}}>
+                              <div style={{fontSize:9,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{label}</div>
+                              <div style={{fontSize:13,fontWeight:700,color}}>{val}</div>
+                            </div>
                           ))}
                         </div>
+                      )}
+                      <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Suggested</div>
+                      <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:10,paddingBottom:2}}>
+                        {suggestions.map(s=>(
+                          <button key={s.cat} onClick={()=>setSuggestionCat(s.cat)}
+                            style={{flexShrink:0,padding:"5px 11px",borderRadius:20,border:"1.5px solid",borderColor:suggestionCat===s.cat?"#7048e8":"#ece9e0",background:suggestionCat===s.cat?"#f3eeff":"#f8f7f2",color:suggestionCat===s.cat?"#7048e8":"#9e9b95",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                            {s.cat}
+                          </button>
+                        ))}
                       </div>
-                    )}
-                    <div ref={chatEndRef}/>
-                  </div>
-
-                  {/* Upload button inside chat */}
-                  <R style={{padding:"0 16px 8px",gap:8}}>
-                    <label style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#7048e8",transition:"all 0.15s",flexShrink:0}}>
-                      <I n="upload" s={14} c="#7048e8"/>
-                      Upload
-                      <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
-                    </label>
-                    <div style={{flex:1,fontSize:11,color:"#bbb9b0",fontStyle:"italic",lineHeight:1.4}}>
-                      {uploadedFile ? `Uploaded: ${uploadedFile}` : "Add a paystub or document"}
+                      <C style={{gap:6}}>
+                        {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).slice(0,4).map((s,i)=>(
+                          <button key={i} onClick={()=>sendAiMessage(s)}
+                            style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:10,padding:"10px 14px",textAlign:"left",cursor:"pointer",fontSize:12,color:"#1a1a2e",fontFamily:"inherit",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                            {s}
+                            <I n="arrow" s={12} c="#bbb9b0"/>
+                          </button>
+                        ))}
+                      </C>
                     </div>
-                  </R>
+                  )}
 
-                  {/* Input */}
-                  <div style={{padding:"8px 16px 16px",borderTop:"1px solid #f0efe9"}}>
-                    <R style={{gap:8}}>
-                      <input className="inp" placeholder="Ask about your finances…" value={aiInput}
-                        onChange={e=>setAiInput(e.target.value)}
-                        onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendAiMessage(aiInput)}
-                        style={{flex:1,fontSize:14}}/>
-                      <button className="btn" onClick={()=>sendAiMessage(aiInput)}
-                        disabled={aiLoading||!aiInput.trim()}
-                        style={{padding:"13px 16px",opacity:aiLoading||!aiInput.trim()?0.4:1,borderRadius:14}}>
-                        <I n="send" s={15} c="#fff"/>
-                      </button>
-                    </R>
-                  </div>
+                  {aiMessages.map((msg,i)=>{
+                    const isUser = msg.role==="user";
+                    return (
+                      <div key={msg.id||i} style={{display:"flex",flexDirection:"column",alignItems:isUser?"flex-end":"flex-start",gap:4}}>
+                        <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:isUser?0:4,paddingRight:isUser?4:0}}>
+                          {isUser?"You":"Advisor"}
+                        </div>
+                        {msg.image&&(
+                          <div style={{borderRadius:12,overflow:"hidden",maxWidth:220,border:"1px solid #f0efe9"}}>
+                            <img src={`data:image/jpeg;base64,${msg.image}`} style={{width:"100%",display:"block"}} alt="Uploaded document"/>
+                          </div>
+                        )}
+                        {(msg.content||msg.isPaystub)&&(
+                          <div style={{
+                            maxWidth:"85%",padding:"12px 16px",borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                            background:isUser?"#1a1a2e":"#f8f7f2",color:isUser?"#fff":"#1a1a2e",
+                            fontSize:13,lineHeight:1.65,border:isUser?"none":"1px solid #ece9e0",
+                          }}>
+                            {msg.isPaystub&&!msg.image ? "Analyzing your document…"
+                              : <>{renderMd(msg.content)}{msg.streaming&&<span style={{display:"inline-block",width:2,height:14,background:"#7048e8",marginLeft:2,borderRadius:1,animation:"pulse 0.8s ease-in-out infinite",verticalAlign:"middle"}}/>}</>}
+                            {msg.applyIncome&&(
+                              <div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
+                                <button onClick={()=>{
+                                  setData(prev=>{ const nd={...prev,monthlyIncome:msg.applyIncome}; persist(nd); debouncedSave(nd); return nd; });
+                                  setAiMessages(prev=>[...prev,{role:'assistant',content:'✅ Done! Income updated to **$'+msg.applyIncome.toLocaleString()+'/mo**.',id:Date.now()}]);
+                                }} style={{background:"#1a1a2e",color:"#fff",border:"none",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                                  ✓ Yes, update to ${msg.applyIncome.toLocaleString()}/mo
+                                </button>
+                                <button onClick={()=>setAiMessages(prev=>prev.filter(m=>m.id!==msg.id))}
+                                  style={{background:"#f8f7f2",color:"#9e9b95",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                                  Keep current
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {aiLoading&&(
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
+                      <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:4}}>Advisor</div>
+                      <div style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5,alignItems:"center"}}>
+                        {[0,1,2].map(j=>(<div key={j} style={{width:7,height:7,borderRadius:"50%",background:"#bbb9b0",animation:"pulse 1.2s ease-in-out infinite",animationDelay:`${j*0.2}s`}}/>))}
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef}/>
                 </div>
-              )}
 
-              {/* Quick prompts shown below chat */}
+                {/* Upload + camera */}
+                <R style={{padding:"0 16px 8px",gap:8,borderTop:"1px solid #f8f7f2"}}>
+                  <label style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#7048e8",flexShrink:0}}>
+                    <I n="upload" s={13} c="#7048e8"/> Upload
+                    <input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} style={{display:"none"}}/>
+                  </label>
+                  <button onClick={()=>setCameraOpen(true)}
+                    style={{display:"flex",alignItems:"center",gap:6,background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:12,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#1a1a2e",flexShrink:0,fontFamily:"inherit"}}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    Camera
+                  </button>
+                  {uploadedFile&&<div style={{flex:1,fontSize:11,color:"#bbb9b0",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{uploadedFile}</div>}
+                </R>
+
+                {/* Input — always visible, no gate */}
+                <div style={{padding:"8px 16px 16px",borderTop:"1px solid #f0efe9"}}>
+                  <R style={{gap:8}}>
+                    <input className="inp" placeholder="Ask anything — or say 'I spent $X on Y'…" value={aiInput}
+                      onChange={e=>setAiInput(e.target.value)}
+                      onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendAiMessage(aiInput)}
+                      style={{flex:1,fontSize:14}}/>
+                    <button className="btn" onClick={()=>sendAiMessage(aiInput)}
+                      disabled={aiLoading||!aiInput.trim()}
+                      style={{padding:"13px 16px",opacity:aiLoading||!aiInput.trim()?0.4:1,borderRadius:14}}>
+                      <I n="send" s={15} c="#fff"/>
+                    </button>
+                  </R>
+                </div>
+              </div>
+
+              {/* Quick chips below after first message */}
               {aiMessages.length>0&&!aiLoading&&(
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).slice(0,3).map((s,i)=>(
                     <button key={i} onClick={()=>sendAiMessage(s)}
-                      style={{background:"#fff",border:"1px solid #ece9e0",borderRadius:20,padding:"8px 14px",fontSize:12,color:"#6b6965",fontFamily:"inherit",fontWeight:500,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}}>
+                      style={{background:"#fff",border:"1px solid #ece9e0",borderRadius:20,padding:"8px 14px",fontSize:12,color:"#6b6965",fontFamily:"inherit",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
                       {s.length>32?s.slice(0,32)+"…":s}
                     </button>
                   ))}
@@ -2651,6 +3033,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               )}
 
             </C>
+          )}
           )}
 
           {/* ══════ LEARN ══════ */}
@@ -2763,21 +3146,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     <R key={l} style={{justifyContent:"space-between",padding:"10px 0",borderTop:sep?"1px solid #f0efe9":"none",marginTop:sep?4:0}}>
                       <span style={{fontSize:13,color:"#9e9b95",fontStyle:italic?"italic":"normal"}}>{l}</span>
                       <span style={{fontSize:14,fontWeight:bold?800:500,color:c}}>{s}{fmtFull(v)}</span>
-                    </R>
-                  ))
-                )}
-              </div>
-
-              <div className="card" style={{padding:22,borderColor:"#ffc9c9",borderWidth:1.5}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#e03131",marginBottom:6}}>Danger zone</div>
-                <div style={{fontSize:13,color:"#bbb9b0",marginBottom:16}}>Clear all spending history. Income and recurring stay.</div>
-                <button className="btn-ghost" style={{borderColor:"#ffc9c9",color:"#e03131",fontSize:12}}
-                  onClick={()=>{if(window.confirm("Clear all spending history?"))upd({dailyEntries:{},plaidTransactions:[]});}}>
-                  Clear history
-                </button>
-              </div>
-            </C>
-          )}
+                    </R>\n                  ))\n                )}\n              </div>\n\n              {/* Monthly income history */}\n              {Object.keys(data.monthlyIncomes||{}).length > 0 && (\n                <div className=\"card\" style={{padding:22}}>\n                  <R style={{justifyContent:\"space-between\",alignItems:\"center\",marginBottom:14}}>\n                    <div className=\"sec-hd\" style={{marginBottom:0}}>Monthly income history</div>\n                    <div style={{fontSize:11,color:\"#bbb9b0\"}}>Tell the AI to update any month</div>\n                  </R>\n                  {Object.entries(data.monthlyIncomes||{})\n                    .sort(([a],[b]) => b.localeCompare(a))\n                    .slice(0,12)\n                    .map(([month, amount]) => {\n                      const d = new Date(month+'-01');\n                      const label = d.toLocaleDateString('en-US',{month:'long',year:'numeric'});\n                      const isCurrent = month === thisMonth();\n                      return (\n                        <R key={month} style={{justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid #f8f7f2'}}>\n                          <R style={{gap:8}}>\n                            <div style={{width:8,height:8,borderRadius:'50%',background:isCurrent?'#2f9e44':'#e0ddd4',flexShrink:0,marginTop:4}}/>\n                            <span style={{fontSize:13,color:'#6b6864'}}>{label}{isCurrent?' (current)':''}</span>\n                          </R>\n                          <span style={{fontSize:13,fontWeight:700,color:'#1a1a2e'}}>{fmtFull(amount)}/mo</span>\n                        </R>\n                      );\n                    })}\n                  <div style={{fontSize:11,color:'#bbb9b0',marginTop:12,fontStyle:'italic'}}>\n                    Say "My January income was $3,800" in the AI Advisor to add past months\n                  </div>\n                </div>\n              )}\n\n              <div className=\"card\" style={{padding:22,borderColor:\"#ffc9c9\",borderWidth:1.5}}>\n                <div style={{fontSize:13,fontWeight:700,color:\"#e03131\",marginBottom:6}}>Danger zone</div>\n                <div style={{fontSize:13,color:\"#bbb9b0\",marginBottom:16}}>Clear all spending history. Income and recurring stay.</div>\n                <button className=\"btn-ghost\" style={{borderColor:\"#ffc9c9\",color:\"#e03131\",fontSize:12}}\n                  onClick={()=>{if(window.confirm(\"Clear all spending history?\"))upd({dailyEntries:{},plaidTransactions:[]});}}>\n                  Clear history\n                </button>\n              </div>\n            </C>\n          )}
         </div>
 
         {/* ── Nav ──────────────────────────────────────────────────────────────── */}
