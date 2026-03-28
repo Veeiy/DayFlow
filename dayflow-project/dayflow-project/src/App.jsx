@@ -133,7 +133,7 @@ const renderInline = (text) => {
 function LearnSection({section, onAsk}) {
   const [open, setOpen] = useState(null);
   return (
-    <div style={{background:"#fff",borderRadius:24,boxShadow:"0 2px 0px rgba(0,0,0,0.04),0 8px 32px rgba(0,0,0,0.07)",border:"1px solid rgba(255,255,255,0.8)",overflow:"hidden"}}>
+    <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:24,boxShadow:"0 2px 0px rgba(0,0,0,0.04),0 8px 32px rgba(0,0,0,0.07)",border:"1px solid rgba(255,255,255,0.8)",overflow:"hidden"}}>
       <div style={{padding:"18px 20px 14px",borderBottom:"1px solid #f0efe9",display:"flex",alignItems:"center",gap:12}}>
         <div style={{width:40,height:40,borderRadius:13,background:`${section.color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{section.emoji}</div>
         <div style={{fontSize:16,fontWeight:800,color:"#1a1a2e"}}>{section.title}</div>
@@ -1277,7 +1277,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           </div>
         </div>
 
-        <div style={{background:"#fff",borderRadius:24,padding:28,boxShadow:"0 4px 0 rgba(0,0,0,0.06),0 16px 48px rgba(0,0,0,0.1)"}}>
+        <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:24,padding:28,boxShadow:"0 4px 0 rgba(0,0,0,0.06),0 16px 48px rgba(0,0,0,0.1)"}}>
           {authScreen==="forgot"?(
             <div style={{display:"flex",flexDirection:"column",gap:14}}>
               <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>Reset password</div>
@@ -1336,7 +1336,29 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         input::placeholder{color:#bbb9b0;}
 
-        body{background:${darkMode?"#0f0f14":"#f0efe9"};}
+        /* CSS custom properties — used by inline styles via var() */
+        :root {
+          --bg: ${darkMode?"#0f0f14":"#f0efe9"};
+          --bg-card: ${darkMode?"#1c1c26":"#ffffff"};
+          --bg-surface: ${darkMode?"#15151f":"#f8f7f2"};
+          --bg-surface2: ${darkMode?"#22222e":"#f0efe9"};
+          --text: ${darkMode?"#e8e6e0":"#1a1a2e"};
+          --text2: ${darkMode?"#8a8898":"#9e9b95"};
+          --text3: ${darkMode?"#5a5a72":"#bbb9b0"};
+          --border: ${darkMode?"rgba(255,255,255,0.08)":"#e8e5dc"};
+          --border2: ${darkMode?"rgba(255,255,255,0.05)":"#f0efe9"};
+          --cat-opacity: ${darkMode?"0.15":"1"};
+        }
+
+        /* Dark mode: category icon bg pills use dimmed tint */
+        .cat-icon-bg { opacity: var(--cat-opacity); }
+        /* Mute hardcoded white backgrounds inside cards in dark mode */
+        ${darkMode?`
+          [data-dm] { background: var(--bg-surface) !important; color: var(--text) !important; }
+          [data-dm-card] { background: var(--bg-card) !important; }
+          [data-dm-border] { border-color: var(--border) !important; }
+        `:""}
+
 
         /* Cards */
         .card{background:${darkMode?"#1c1c26":"#ffffff"};border-radius:24px;box-shadow:${darkMode?"0 2px 0px rgba(0,0,0,0.3),0 8px 32px rgba(0,0,0,0.4)":"0 2px 0px rgba(0,0,0,0.04),0 8px 32px rgba(0,0,0,0.07)"};border:1px solid ${darkMode?"rgba(255,255,255,0.06)":"rgba(255,255,255,0.8)"};}
@@ -1416,6 +1438,20 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
           background-image:radial-gradient(circle,${darkMode?"rgba(255,255,255,0.03)":"rgba(0,0,0,0.07)"} 1px,transparent 1px);
           background-size:22px 22px;
         }
+
+        ${darkMode?`
+          /* Dark mode global overrides for hardcoded inline styles */
+          /* Mute category icon backgrounds */
+          .cat-pill { background: rgba(255,255,255,0.08) !important; }
+          /* Member color swatches stay vivid */
+          /* Transaction row dividers */
+          .tx-row { border-bottom-color: rgba(255,255,255,0.06) !important; }
+          /* Override common hardcoded backgrounds via data attributes */
+          [data-surface] { background: #22222e !important; }
+          [data-surface="2"] { background: #1c1c26 !important; }
+          /* Text in cards that's hardcoded dark */
+          .card span, .card div, .card p { color: inherit; }
+        `:""}
       `}</style>
 
       <div className="app-bg">
@@ -1431,12 +1467,12 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         {/* ── Feature Gate Modal ───────────────────────────────────────── */}
         {showGate&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}} onClick={()=>setShowGate(null)}>
-            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 44px",animation:"slideUp 0.3s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 44px",animation:"slideUp 0.3s ease"}} onClick={e=>e.stopPropagation()}>
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 24px"}}/>
               <div style={{fontSize:32,textAlign:"center",marginBottom:12}}>🔒</div>
               <div style={{fontSize:20,fontWeight:800,textAlign:"center",marginBottom:8}}>Create a free account</div>
               <div style={{fontSize:14,color:"#9e9b95",textAlign:"center",lineHeight:1.6,marginBottom:24}}>{showGate}</div>
-              <div style={{background:"#f8f7f2",borderRadius:16,padding:16,marginBottom:20,border:"1px solid #ece9e0"}}>
+              <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:16,padding:16,marginBottom:20,border:"1px solid #ece9e0"}}>
                 {[["💾","Your data saves across devices"],["📊","Full spending history & insights"],["🤖","Personalized AI Advisor"],["🔄","Sync income, bills & budget"]].map(([icon,text])=>(
                   <div key={text} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0"}}>
                     <span style={{fontSize:16}}>{icon}</span>
@@ -1492,7 +1528,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         {/* ── Onboarding Modal ─────────────────────────────────────────────── */}
         {showOnboarding&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}}>
-            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease",maxHeight:"92vh",overflowY:"auto"}}>
+            <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease",maxHeight:"92vh",overflowY:"auto"}}>
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
               {/* Progress bar */}
               <div style={{display:"flex",gap:5,marginBottom:24}}>
@@ -1505,7 +1541,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               {onboardStep===0&&(<>
                 <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>Welcome to DayFlow 👋</div>
                 <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:20}}>Your personal daily finance tracker. Let's get everything set up so DayFlow works perfectly for your life.</div>
-                <div style={{background:"#f8f7f2",borderRadius:18,padding:20,marginBottom:20,border:"1px solid #ece9e0"}}>
+                <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:18,padding:20,marginBottom:20,border:"1px solid #ece9e0"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:14}}>Here's how DayFlow works</div>
                   {[["💰","Enter your take-home income"],["🧾","Add recurring bills & subscriptions"],["👨‍👩‍👧","Optionally add family members to pool income"],["📅","Get a personalized daily spending budget"],["🤖","Ask the AI Advisor anything about your money"]].map(([icon,text],i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
@@ -1549,7 +1585,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 2 of 5</div>
                 <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Add your recurring bills</div>
                 <div style={{fontSize:14,color:"#9e9b95",marginBottom:14,lineHeight:1.6}}>Bills get subtracted from your income first. What's left becomes your spendable pool — divided across the month for your daily budget.</div>
-                <div style={{background:"#f8f7f2",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #ece9e0"}}>
+                <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #ece9e0"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Common bills to add in the Bills tab</div>
                   {[["🏠","Rent / Mortgage"],["🚗","Car payment"],["📱","Phone"],["💡","Utilities"],["🎬","Subscriptions (Netflix, Spotify…)"],["🏥","Insurance (health, car, renters)"],["💳","Minimum debt payments"]].map(([icon,label])=>(
                     <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:"1px solid #f0efe9"}}>
@@ -1570,7 +1606,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Step 3 of 5</div>
                 <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Do you share finances?</div>
                 <div style={{fontSize:14,color:"#9e9b95",marginBottom:14,lineHeight:1.6}}>DayFlow supports household mode — combine income from a partner, spouse, or family member to get a shared daily budget that reflects your real household finances.</div>
-                <div style={{background:"#f8f7f2",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #ece9e0"}}>
+                <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:16,padding:16,marginBottom:14,border:"1px solid #ece9e0"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Household mode lets you</div>
                   {[["👩‍❤️‍👨","Pool income from multiple earners"],["📊","See combined bills vs combined income"],["👧","Track each person's contribution"],["🏦","Get a household daily spending budget"]].map(([icon,text])=>(
                     <div key={text} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"1px solid #f0efe9"}}>
@@ -1601,7 +1637,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                     </div>
                   ))}
                 </div>
-                <div style={{background:"#f8f7f2",borderRadius:14,padding:12,marginBottom:18,border:"1px solid #ece9e0",fontSize:13,color:"#555",lineHeight:1.6}}>
+                <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:14,padding:12,marginBottom:18,border:"1px solid #ece9e0",fontSize:13,color:"#555",lineHeight:1.6}}>
                   📄 <strong>Upload a paystub</strong> in the Advisor tab and it will read your deductions, 401k contributions, and tax withholdings to give you personalized advice.
                 </div>
                 <div style={{display:"flex",gap:12}}>
@@ -1614,7 +1650,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               {onboardStep===5&&(<>
                 <div style={{fontSize:26,fontWeight:800,marginBottom:6,textAlign:"center"}}>You're all set! 🎉</div>
                 <div style={{fontSize:14,color:"#9e9b95",lineHeight:1.6,marginBottom:18,textAlign:"center"}}>Here's your personalized daily spending budget based on what you've entered so far.</div>
-                <div style={{background:"#f8f7f2",borderRadius:20,padding:24,marginBottom:18,border:"1px solid #ece9e0",textAlign:"center"}}>
+                <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:20,padding:24,marginBottom:18,border:"1px solid #ece9e0",textAlign:"center"}}>
                   <div style={{fontSize:13,color:"#9e9b95",marginBottom:4}}>Your daily spending budget</div>
                   <div style={{fontSize:44,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.02em"}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
                   <div style={{fontSize:12,color:"#bbb9b0",marginTop:4}}>per day to spend freely</div>
@@ -1631,13 +1667,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         {/* ── Upgrade Modal ────────────────────────────────────────────────── */}
         {showUpgrade&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}} onClick={()=>setShowUpgrade(false)}>
-            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease",maxHeight:"92vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease",maxHeight:"92vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
               <div style={{textAlign:"center",marginBottom:20}}>
                 <div style={{fontSize:24,fontWeight:800,marginBottom:6}}>Upgrade DayFlow</div>
                 <div style={{fontSize:14,color:"#9e9b95"}}>Unlock powerful features for your finances</div>
               </div>
-              <div style={{display:"flex",background:"#f8f7f2",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #ece9e0"}}>
+              <div style={{display:"flex",background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #ece9e0"}}>
                 {["monthly","annual"].map(b=>(
                   <button key={b} onClick={()=>setUpgradeBilling(b)} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:upgradeBilling===b?"#1a1a2e":"transparent",color:upgradeBilling===b?"#fff":"#9e9b95",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                     {b==="monthly"?"Monthly":"Annual"}{b==="annual"&&<span style={{marginLeft:6,background:"#2f9e44",color:"#fff",borderRadius:6,padding:"1px 6px",fontSize:10}}>Save 20%</span>}
@@ -1677,13 +1713,13 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         {/* ── Onboarding Modal ─────────────────────────────────────────────── */}
         {showOnboarding&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}}>
-            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease"}}>
+            <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease"}}>
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 24px"}}/>
               {onboardStep===0&&(
                 <>
                   <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>Welcome to DayFlow 👋</div>
                   <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:28}}>Let's set up your daily spending allowance in 2 quick steps. It only takes a minute.</div>
-                  <div style={{background:"#f8f7f2",borderRadius:18,padding:20,marginBottom:24,border:"1px solid #ece9e0"}}>
+                  <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:18,padding:20,marginBottom:24,border:"1px solid #ece9e0"}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>How it works</div>
                     {[["💰","Enter last month's take-home income"],["🧾","Add your recurring bills"],["📅","We calculate your daily spending budget"]].map(([icon,text])=>(
                       <div key={text} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
@@ -1726,7 +1762,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <>
                   <div style={{fontSize:26,fontWeight:800,marginBottom:8}}>You're all set! 🎉</div>
                   <div style={{fontSize:15,color:"#9e9b95",lineHeight:1.6,marginBottom:24}}>Your daily allowance is now calculated. Head to the <strong>Bills</strong> tab to add your recurring expenses for an even more accurate number.</div>
-                  <div style={{background:"#f8f7f2",borderRadius:18,padding:20,marginBottom:24,border:"1px solid #ece9e0",textAlign:"center"}}>
+                  <div style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:18,padding:20,marginBottom:24,border:"1px solid #ece9e0",textAlign:"center"}}>
                     <div style={{fontSize:13,color:"#9e9b95",marginBottom:4}}>Your daily spending budget</div>
                     <div style={{fontSize:36,fontWeight:800,color:"#1a1a2e"}}>{fmt(calcDaily(calcPool(data.monthlyIncome, data.recurringPayments)))}</div>
                     <div style={{fontSize:12,color:"#bbb9b0",marginTop:4}}>per day</div>
@@ -1741,14 +1777,14 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         {/* ── Upgrade Modal ────────────────────────────────────────────────── */}
         {showUpgrade&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}} onClick={()=>setShowUpgrade(false)}>
-            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 24px 40px",animation:"slideUp 0.35s ease"}} onClick={e=>e.stopPropagation()}>
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
               <div style={{textAlign:"center",marginBottom:20}}>
                 <div style={{fontSize:24,fontWeight:800,marginBottom:6}}>Upgrade DayFlow</div>
                 <div style={{fontSize:14,color:"#9e9b95"}}>Unlock powerful features for your finances</div>
               </div>
               {/* Billing toggle */}
-              <div style={{display:"flex",background:"#f8f7f2",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #ece9e0"}}>
+              <div style={{display:"flex",background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #ece9e0"}}>
                 {["monthly","annual"].map(b=>(
                   <button key={b} onClick={()=>setUpgradeBilling(b)} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:upgradeBilling===b?"#1a1a2e":"transparent",color:upgradeBilling===b?"#fff":"#9e9b95",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                     {b==="monthly"?"Monthly":"Annual"}{b==="annual"&&<span style={{marginLeft:6,background:"#2f9e44",color:"#fff",borderRadius:6,padding:"1px 6px",fontSize:10}}>Save 20%</span>}
@@ -2486,11 +2522,11 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))",gap:8,marginBottom:14}}>
                     {CATS.map(c=>(
                       <button key={c.id} onClick={()=>setNewRec(p=>({...p,category:c.id}))}
-                        style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"10px 6px",borderRadius:16,border:"1.5px solid",borderColor:newRec.category===c.id?c.fg:"#e8e5dc",background:newRec.category===c.id?c.bg:"#fafaf8",cursor:"pointer",transition:"all 0.15s",fontFamily:"inherit"}}>
-                        <div style={{width:30,height:30,borderRadius:10,background:newRec.category===c.id?c.bg:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          <I n={c.icon} s={15} c={c.fg}/>
+                        style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"10px 6px",borderRadius:16,border:"1.5px solid",borderColor:newRec.category===c.id?c.fg:darkMode?"rgba(255,255,255,0.08)":"#e8e5dc",background:newRec.category===c.id?darkMode?"rgba(255,255,255,0.08)":c.bg:darkMode?"#15151f":"#fafaf8",cursor:"pointer",transition:"all 0.15s",fontFamily:"inherit"}}>
+                        <div style={{width:30,height:30,borderRadius:10,background:newRec.category===c.id?c.bg:darkMode?"rgba(255,255,255,0.06)":"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <I n={c.icon} s={15} c={newRec.category===c.id?c.fg:darkMode?c.fg:c.fg}/>
                         </div>
-                        <span style={{fontSize:9.5,fontWeight:700,color:newRec.category===c.id?c.fg:"#bbb9b0",letterSpacing:"0.03em",textAlign:"center",lineHeight:1.2,textTransform:"uppercase"}}>{c.label}</span>
+                        <span style={{fontSize:9,fontWeight:700,color:newRec.category===c.id?c.fg:darkMode?"#5a5a72":"#bbb9b0",letterSpacing:"0.02em",textAlign:"center",lineHeight:1.2,textTransform:"uppercase",width:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</span>
                       </button>
                     ))}
                   </div>
@@ -2526,7 +2562,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 ):activeCats.map(cat=>(
                   <div key={cat.id} className="card" style={{padding:22}}>
                     <R style={{gap:10,marginBottom:14}}>
-                      <div style={{width:34,height:34,borderRadius:11,background:cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <div style={{width:34,height:34,borderRadius:11,background:darkMode?"rgba(255,255,255,0.08)":cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
                         <I n={cat.icon} s={17} c={cat.fg}/>
                       </div>
                       <C style={{flex:1}}>
@@ -2552,7 +2588,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                           <button className="rm" onClick={()=>upd({recurringPayments:data.recurringPayments.filter(x=>x.id!==p.id)})}><I n="x" s={14}/></button>
                         </div>
                         {editRecId===p.id&&editRecData&&(
-                          <div style={{padding:"12px",background:"#f8f7f2",borderRadius:12,marginBottom:6}}>
+                          <div style={{padding:"12px",background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,marginBottom:6}}>
                             <R style={{gap:8,marginBottom:8,flexWrap:"wrap"}}>
                               <input className="inp" placeholder="Name" value={editRecData.name} onChange={e=>setEditRecData(p=>({...p,name:e.target.value}))} style={{flex:2,minWidth:120}}/>
                               <input className="inp" type="number" placeholder="Amount" value={editRecData.amount} onChange={e=>setEditRecData(p=>({...p,amount:e.target.value}))} style={{flex:1,minWidth:80}}/>
@@ -2638,9 +2674,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               return (
                                 <R key={i} style={{marginLeft:46,marginBottom:6,gap:8}}>
                                   <div style={{width:4,borderRadius:2,background:"#1a1a2e",flexShrink:0,alignSelf:"stretch"}}/>
-                                  <R style={{flex:1,justifyContent:"space-between",background:"#f8f7f2",borderRadius:10,padding:"9px 12px"}}>
+                                  <R style={{flex:1,justifyContent:"space-between",background:darkMode?"#22222e":"#f8f7f2",borderRadius:10,padding:"9px 12px"}}>
                                     <R style={{gap:8}}>
-                                      <div style={{width:22,height:22,borderRadius:7,background:cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                      <div style={{width:22,height:22,borderRadius:7,background:darkMode?"rgba(255,255,255,0.08)":cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
                                         <I n={cat.icon} s={11} c={cat.fg}/>
                                       </div>
                                       <C style={{gap:1}}>
@@ -2815,7 +2851,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                         {label:"Total bills",val:totalHBills,color:"#e03131"},
                         {label:"Household pool",val:totalHPool,color:"#1a1a2e"},
                       ].map(({label,val,color})=>(
-                        <C key={label} style={{background:"#f8f7f2",borderRadius:14,padding:"12px 14px",gap:3}}>
+                        <C key={label} style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:14,padding:"12px 14px",gap:3}}>
                           <div style={{fontSize:9,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase"}}>{label}</div>
                           <div style={{fontSize:16,fontWeight:700,color,letterSpacing:"-0.02em"}}>{fmt(val)}</div>
                         </C>
@@ -2898,7 +2934,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               {l:"Bills",v:bills,c:"#e03131"},
                               {l:"Net pool",v:pool,c:pool>=0?"#1a1a2e":"#e03131"},
                             ].map(({l,v,c})=>(
-                              <div key={l} style={{background:"#f8f7f2",borderRadius:10,padding:"10px 12px"}}>
+                              <div key={l} style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:10,padding:"10px 12px"}}>
                                 <div style={{fontSize:9,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{l}</div>
                                 <div style={{fontSize:15,fontWeight:700,color:c}}>{fmt(v)}</div>
                               </div>
@@ -2910,7 +2946,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                           </R>
                           {/* Inline edit form */}
                           {editMemberId===m.id&&m.id!=="owner"&&(
-                            <div style={{marginTop:12,padding:12,background:"#f8f7f2",borderRadius:12}}>
+                            <div style={{marginTop:12,padding:12,background:darkMode?"#22222e":"#f8f7f2",borderRadius:12}}>
                               <div style={{fontSize:11,fontWeight:700,color:"#9e9b95",marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase"}}>Edit member</div>
                               <input className="inp" placeholder="Name" defaultValue={m.name} id={`edit-name-${m.id}`} style={{marginBottom:8}}/>
                               <input className="inp" type="number" placeholder="Monthly income" defaultValue={m.monthlyIncome||0} id={`edit-income-${m.id}`} style={{marginBottom:8}}/>
@@ -2941,7 +2977,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                                 return (
                                   <R key={r.id} style={{justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f8f7f2"}}>
                                     <R style={{gap:8}}>
-                                      <div style={{width:24,height:24,borderRadius:7,background:cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                      <div style={{width:24,height:24,borderRadius:7,background:darkMode?"rgba(255,255,255,0.08)":cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
                                         <I n={cat.icon} s={12} c={cat.fg}/>
                                       </div>
                                       <C style={{gap:1}}>
@@ -3068,9 +3104,9 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                               return (
                                 <R key={i} style={{marginLeft:46,marginBottom:6,gap:8}}>
                                   <div style={{width:4,borderRadius:2,background:r.memberColor||"#1a1a2e",flexShrink:0,alignSelf:"stretch"}}/>
-                                  <R style={{flex:1,justifyContent:"space-between",background:"#f8f7f2",borderRadius:10,padding:"9px 12px"}}>
+                                  <R style={{flex:1,justifyContent:"space-between",background:darkMode?"#22222e":"#f8f7f2",borderRadius:10,padding:"9px 12px"}}>
                                     <R style={{gap:8}}>
-                                      <div style={{width:22,height:22,borderRadius:7,background:cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                      <div style={{width:22,height:22,borderRadius:7,background:darkMode?"rgba(255,255,255,0.08)":cat.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
                                         <I n={cat.icon} s={11} c={cat.fg}/>
                                       </div>
                                       <C style={{gap:1}}>
@@ -3142,7 +3178,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                             {label:"Spent today",val:fmtFull(daySpent),color:daySpent>0?"#e03131":"#bbb9b0"},
                             {label:"Pool left",val:fmtFull(poolLeft),color:poolLeft>=0?"#2f9e44":"#e03131"},
                           ].map(({label,val,color})=>(
-                            <div key={label} style={{background:"#f8f7f2",borderRadius:12,padding:"10px 12px",border:"1px solid #ece9e0"}}>
+                            <div key={label} style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,padding:"10px 12px",border:"1px solid #ece9e0"}}>
                               <div style={{fontSize:9,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>{label}</div>
                               <div style={{fontSize:13,fontWeight:700,color}}>{val}</div>
                             </div>
@@ -3161,7 +3197,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                       <C style={{gap:6}}>
                         {(suggestions.find(s=>s.cat===suggestionCat)?.prompts||[]).slice(0,4).map((s,i)=>(
                           <button key={i} onClick={()=>sendAiMessage(s)}
-                            style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:10,padding:"10px 14px",textAlign:"left",cursor:"pointer",fontSize:12,color:"#1a1a2e",fontFamily:"inherit",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                            style={{background:darkMode?"#22222e":"#f8f7f2",border:"1px solid #ece9e0",borderRadius:10,padding:"10px 14px",textAlign:"left",cursor:"pointer",fontSize:12,color:"#1a1a2e",fontFamily:"inherit",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
                             {s}
                             <I n="arrow" s={12} c="#bbb9b0"/>
                           </button>
@@ -3213,7 +3249,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   {aiLoading&&(
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
                       <div style={{fontSize:10,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.06em",textTransform:"uppercase",paddingLeft:4}}>Advisor</div>
-                      <div style={{background:"#f8f7f2",border:"1px solid #ece9e0",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5,alignItems:"center"}}>
+                      <div style={{background:darkMode?"#22222e":"#f8f7f2",border:"1px solid #ece9e0",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5,alignItems:"center"}}>
                         {[0,1,2].map(j=>(<div key={j} style={{width:7,height:7,borderRadius:"50%",background:"#bbb9b0",animation:"pulse 1.2s ease-in-out infinite",animationDelay:`${j*0.2}s`}}/>))}
                       </div>
                     </div>
@@ -3332,7 +3368,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                   {(data.incomeSources||[]).length>0&&(
                     <C style={{gap:6,marginBottom:14}}>
                       {(data.incomeSources||[]).map(src=>(
-                        <R key={src.id} style={{justifyContent:"space-between",alignItems:"center",background:"#f8f7f2",borderRadius:12,padding:"10px 14px"}}>
+                        <R key={src.id} style={{justifyContent:"space-between",alignItems:"center",background:darkMode?"#22222e":"#f8f7f2",borderRadius:12,padding:"10px 14px"}}>
                           <C style={{gap:2}}>
                             <span style={{fontSize:13,fontWeight:600,color:"#1a1a2e"}}>{src.label}</span>
                             <span style={{fontSize:12,color:"#9e9b95"}}>{fmtFull(src.amount)}/mo</span>
@@ -3484,7 +3520,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
         {/* ── Feedback Modal ────────────────────────────────────────────── */}
         {showFeedback&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn 0.2s ease"}} onClick={()=>setShowFeedback(false)}>
-            <div style={{background:"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 20px 44px",animation:"slideUp 0.3s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{background:darkMode?"#1c1c26":"#fff",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:560,padding:"28px 20px 44px",animation:"slideUp 0.3s ease"}} onClick={e=>e.stopPropagation()}>
               <div style={{width:40,height:4,background:"#e0ddd4",borderRadius:2,margin:"0 auto 20px"}}/>
 
               {feedbackStep==='thanks' ? (
@@ -3668,7 +3704,7 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
                 <>
                   <div style={{fontSize:20,fontWeight:800,letterSpacing:"-0.03em",marginBottom:6}}>Connect {selBank}</div>
                   <div style={{fontSize:14,color:"#9e9b95",marginBottom:22,lineHeight:1.6}}>In production, Plaid's secure hosted UI appears here — DayFlow never touches your credentials.</div>
-                  <C style={{background:"#f8f7f2",borderRadius:18,padding:20,gap:10,marginBottom:20}}>
+                  <C style={{background:darkMode?"#22222e":"#f8f7f2",borderRadius:18,padding:20,gap:10,marginBottom:20}}>
                     <div style={{fontSize:11,fontWeight:700,color:"#bbb9b0",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Plaid Sandbox</div>
                     <input className="inp" placeholder="Username" defaultValue="user_good"/>
                     <input className="inp" type="password" placeholder="Password" defaultValue="pass_good"/>
