@@ -305,7 +305,7 @@ export default function App() {
   };
 
   // ── Splash screen timer ──────────────────────────────────────────────────
-  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2200); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setShowSplash(false), 2400); return () => clearTimeout(t); }, []);
 
   // ── Guest demo data ──────────────────────────────────────────────────────
   const GUEST_DATA = {
@@ -1173,26 +1173,74 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
   // ── Auth loading ────────────────────────────────────────────────────────────
   // ── Splash screen ────────────────────────────────────────────────────────────
   if (showSplash) return (
-    <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",animation:"fadeIn 0.3s ease"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes waveIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1)}}`}</style>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:24,animation:"waveIn 0.6s ease 0.2s both"}}>
-        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-          <rect width="80" height="80" rx="22" fill="#fff" fillOpacity="0.08"/>
-          <path d="M10 40 Q20 20 30 40 Q40 60 50 40 Q60 20 70 40" stroke="rgba(255,255,255,0.2)" strokeWidth="3" strokeLinecap="round" fill="none"/>
-          <path d="M10 40 Q20 20 30 40 Q40 60 50 40" stroke="#fff" strokeWidth="4" strokeLinecap="round" fill="none"/>
-          <circle cx="50" cy="40" r="6" fill="#2f9e44"/>
-        </svg>
-        <div style={{textAlign:"center"}}>
-          <div style={{fontSize:42,fontWeight:800,color:"#fff",letterSpacing:"-0.04em",lineHeight:1}}>
-            day<span style={{fontWeight:300,opacity:0.6}}>flow</span>
+    <div style={{minHeight:"100vh",background:"#f0efe9",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Plus Jakarta Sans',sans-serif",overflow:"hidden"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+        @keyframes splashExpand {
+          0%   { transform: scale(0.18); opacity: 0; }
+          30%  { opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes splashWordmark {
+          0%   { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes splashTagline {
+          0%   { opacity: 0; transform: translateY(6px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dotBounce {
+          0%, 100% { cy: 40; }
+          50%       { cy: 20; }
+        }
+        @keyframes waveDraw {
+          0%   { stroke-dashoffset: 200; }
+          100% { stroke-dashoffset: 0; }
+        }
+        @keyframes dotTravel {
+          0%   { offset-distance: 0%; }
+          100% { offset-distance: 100%; }
+        }
+        @keyframes pulseGlow {
+          0%, 100% { r: 6; opacity: 1; }
+          50%       { r: 9; opacity: 0.7; }
+        }
+      `}</style>
+
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:28}}>
+
+        {/* Animated wave logo — expands from centre */}
+        <div style={{animation:"splashExpand 0.9s cubic-bezier(0.34,1.3,0.64,1) both"}}>
+          <svg width="120" height="72" viewBox="0 0 120 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Ghost trail */}
+            <path d="M5 36 Q20 10 35 36 Q50 62 65 36 Q80 10 95 36 Q110 62 115 36"
+              stroke="#d4d0c8" strokeWidth="2.5" strokeLinecap="round" fill="none"
+              strokeDasharray="220" strokeDashoffset="0"
+              style={{animation:"waveDraw 1s ease 0.3s both"}}/>
+            {/* Solid active portion */}
+            <path d="M5 36 Q20 10 35 36 Q50 62 65 36 Q80 10 95 36"
+              stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round" fill="none"
+              strokeDasharray="170" strokeDashoffset="170"
+              style={{animation:"waveDraw 0.9s cubic-bezier(0.4,0,0.2,1) 0.15s forwards"}}/>
+            {/* Green ball — pulses at the head */}
+            <circle cx="95" cy="36" r="6" fill="#2f9e44"
+              style={{animation:"pulseGlow 1.4s ease-in-out 0.8s infinite"}}/>
+          </svg>
+        </div>
+
+        {/* Wordmark — fades in after wave draws */}
+        <div style={{textAlign:"center",animation:"splashWordmark 0.6s ease 0.7s both"}}>
+          <div style={{fontSize:46,fontWeight:800,color:"#1a1a2e",letterSpacing:"-0.05em",lineHeight:1}}>
+            day<span style={{fontWeight:300,color:"#6b6864"}}>flow</span>
           </div>
-          <div style={{fontSize:14,color:"rgba(255,255,255,0.4)",marginTop:8,fontWeight:500}}>Your daily money, simplified</div>
         </div>
-        <div style={{display:"flex",gap:6,marginTop:8}}>
-          {[0,1,2].map(i=>(
-            <div key={i} style={{width:6,height:6,borderRadius:"50%",background:"rgba(255,255,255,0.3)",animation:`pulse 1.2s ease-in-out infinite`,animationDelay:`${i*0.2}s`}}/>
-          ))}
+
+        {/* Tagline — last to appear */}
+        <div style={{fontSize:14,fontWeight:500,color:"#9e9b95",letterSpacing:"0.01em",animation:"splashTagline 0.6s ease 1.1s both"}}>
+          Take your spending day by day
         </div>
+
       </div>
     </div>
   );
@@ -3033,7 +3081,6 @@ For monthly_equivalent: biweekly × 2.17, weekly × 4.33, semi-monthly × 2, mon
               )}
 
             </C>
-          )}
           )}
 
           {/* ══════ LEARN ══════ */}
