@@ -1,1 +1,14 @@
-{"text": "# bradohaire.com portfolio\n\nPersonal portfolio for Brad O'Haire. Case studies, writing, and contact.\n\n## Stack\n\n- Next.js 14 (App Router)\n- TypeScript\n- Tailwind CSS\n- Static generation for project pages\n- Deployed on Vercel\n\n## Run locally\n\n```bash\nnpm install\nnpm run dev\n```\n\nOpen http://localhost:3000.\n\n## Deploy\n\n```bash\nnpx vercel\n```\n\nFirst run asks you to log in and pick a team; subsequent runs are instant.\n"}
+# DayFlow
+
+Personal spending tracker with agentic categorization and weekly budget coaching. Built to replace the mental overhead of reconciling transactions by hand.
+
+## Stack
+
+- React + TypeScript frontend
+- Supabase (Postgres + auth + row-level security)
+- Dark mode first
+- Finance education module
+
+## Status
+
+Active development.
